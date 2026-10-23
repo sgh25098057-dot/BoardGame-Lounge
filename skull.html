@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>스컬 (Skull & Roses)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <!-- Firebase SDK (v9 compat) for Cross-Device Realtime Cloud Multiplayer -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body { font-family: 'Inter', -apple-system, sans-serif; user-select: none; }
+    .font-brand { font-family: 'Cinzel', serif; }
+    .skull-table {
+      background-color: #17110c;
+      background-image: 
+        radial-gradient(circle at 50% 40%, rgba(180, 83, 9, 0.15) 0%, transparent 75%),
+        radial-gradient(#291a10 15%, transparent 16%);
+      background-size: 100% 100%, 24px 24px;
+    }
+    .wood-rim {
+      box-shadow: inset 0 0 16px rgba(0,0,0,0.8), 0 10px 25px -5px rgba(0,0,0,0.6);
+      border: 4px solid #4a2810;
+    }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #1c1917; }
+    ::-webkit-scrollbar-thumb { background: #44403c; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #78716c; }
+  </style>
+</head>
+<body class="bg-stone-950 text-stone-100 min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+  <!-- TOP APP HEADER -->
+  <header class="bg-stone-900/90 border-b border-stone-800/80 backdrop-blur sticky top-0 z-40 px-3 sm:px-6 py-2.5 flex items-center justify-between shadow-md">
+    <div class="flex items-center gap-3">
+      <a href="index.html" class="w-9 h-9 rounded-xl bg-gradient-to-tr from-red-600 to-amber-500 flex items-center justify-center font-brand font-black text-stone-950 text-xl shadow-lg shadow-red-500/20 active:scale-95 transition-all" title="로비로 돌아가기">
+        💀
+      </a>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-brand font-extrabold tracking-wider text-base sm:text-lg text-amber-200">
+            SKULL & ROSES
+          </h1>
+          <span class="text-[10px] font-mono text-red-400 bg-red-950/80 px-1.5 py-0.5 rounded border border-red-600/40 font-bold">2호 게임</span>
+          
+          <button id="btnHeaderRoomPill" onclick="copyInviteLink()" title="초대 링크 복사" class="bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-300 text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 transition-all active:scale-95">
+            <span id="headerRoomCode">ROOM: #------</span>
+            <svg class="w-3 h-3 text-red-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          </button>
+        </div>
+        <div class="flex items-center gap-2 mt-0.5">
+          <p id="headerStatusText" class="text-[11px] text-stone-400 truncate max-w-[160px] sm:max-w-xs">온라인 블러핑 세션</p>
+          <span id="cloudStatusDot" class="inline-flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-950/70 px-1.5 py-0.2 rounded border border-red-500/30">
+            <span class="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></span>
+            <span>클라우드 연동됨</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header Actions -->
+    <div class="flex items-center gap-1.5 sm:gap-2">
+      <a href="index.html" class="px-2.5 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95">
+        <svg class="w-4 h-4 text-amber-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span class="hidden sm:inline">로비 홈</span>
+      </a>
+
+      <button onclick="toggleAudioMute()" id="btnMute" class="p-2 rounded-xl bg-stone-800/90 hover:bg-stone-700 text-stone-300 transition-colors" title="효과음 켜기/끄기">
+        <svg id="svgSoundOn" class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+        <svg id="svgSoundOff" class="w-5 h-5 hidden pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
+      </button>
+
+      <button onclick="openRulesModal()" class="px-2.5 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-semibold flex items-center gap-1.5 transition-colors">
+        <svg class="w-4 h-4 text-amber-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        <span class="hidden sm:inline">규칙</span>
+      </button>
+
+      <button onclick="openLobbyModal()" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-stone-950 text-xs font-bold flex items-center gap-1.5 shadow-md shadow-amber-500/20 transition-all">
+        <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        <span>룸 관리</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN SKULL ARENA -->
+  <main class="flex-1 w-full max-w-7xl mx-auto p-2 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-start">
+    
+    <!-- LEFT: Skull Play Mat Arena (7 cols) -->
+    <section class="lg:col-span-7 flex flex-col gap-3">
+      <div class="skull-table wood-rim rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col justify-between min-h-[460px] relative overflow-hidden shadow-2xl">
+        
+        <!-- Header Status inside Skull Tabletop -->
+        <div class="flex items-center justify-between z-10">
+          <div id="skullActivePlayerBadge" class="bg-stone-900/90 border border-amber-900/60 px-3 py-1.5 rounded-2xl flex items-center gap-2 shadow-lg backdrop-blur">
+            <span id="skullBadgeAvatar" class="text-xl">💀</span>
+            <div>
+              <p id="skullBadgePhaseTitle" class="text-[10px] uppercase font-bold text-red-400 tracking-wider">PHASE: 카드 놓기</p>
+              <h2 id="skullBadgeName" class="text-sm font-extrabold text-stone-100 truncate max-w-[140px]">대기 중</h2>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <div class="bg-stone-900/90 border border-stone-800 px-3 py-1.5 rounded-2xl text-center shadow-lg backdrop-blur">
+              <span class="block text-[9px] font-bold text-stone-400 uppercase tracking-widest">목표 승리</span>
+              <span class="text-xs sm:text-sm font-black text-amber-300">2점 (꽃)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Center Stage: Waiting Lobby OR Player Mats Grid -->
+        <div class="my-auto py-3 z-10 w-full flex flex-col items-center">
+          
+          <!-- Skull Waiting Room Stage -->
+          <div id="skullWaitingRoomArea" class="w-full max-w-md bg-stone-950/85 border border-stone-800 rounded-3xl p-5 backdrop-blur-md shadow-2xl flex flex-col items-center text-center gap-3">
+            <div class="flex items-center gap-2">
+              <span class="text-2xl animate-bounce">💀</span>
+              <h3 class="text-base font-black text-amber-300 tracking-wider">스컬 대기실 (WAITING LOBBY)</h3>
+            </div>
+            <p id="skullWaitingRoomGuideText" class="text-xs text-stone-300">게스트의 준비 완료 후 방장이 게임을 시작합니다.</p>
+            <div id="skullWaitingPlayersChips" class="w-full grid grid-cols-2 gap-2 my-1"></div>
+            <div class="w-full flex flex-col sm:flex-row items-center gap-2 pt-2 border-t border-stone-800/80">
+              <button id="btnSkullLobbyAction" onclick="handleSkullLobbyActionButtonClick()" class="w-full py-3 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-xl active:scale-95 flex items-center justify-center gap-2"></button>
+            </div>
+          </div>
+
+          <!-- Active Game Skull Tabletop -->
+          <div id="skullActiveGameArea" class="hidden w-full flex flex-col items-center">
+            <p id="skullActionGuidePrompt" class="text-xs sm:text-sm font-bold text-amber-200 mb-3 text-center px-4 py-1.5 rounded-full bg-black/60 border border-amber-900/60 backdrop-blur shadow-md">
+              매트 위에 놓을 카드를 선택하세요.
+            </p>
+
+            <!-- 2x2 or 2x3 Mats Grid -->
+            <div id="skullMatsGrid" class="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl"></div>
+
+            <!-- Bidding / Challenge Panel (Floats when in BIDDING phase) -->
+            <div id="skullBiddingControls" class="hidden w-full max-w-md bg-stone-900/95 border border-amber-500/50 rounded-2xl p-4 mt-3 shadow-2xl flex flex-col items-center gap-2">
+              <div class="flex items-center justify-between w-full text-xs">
+                <span class="text-stone-300">현재 최고 비딩:</span>
+                <span id="skullCurrentHighBidText" class="font-bold text-amber-300 text-sm">없음</span>
+              </div>
+              <div class="flex items-center gap-2 w-full pt-1">
+                <button id="btnSkullBidPass" onclick="handleSkullBidPass()" class="flex-1 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 font-bold text-xs">패스 (Pass)</button>
+                <div class="flex items-center gap-1">
+                  <button onclick="adjustSkullBidVal(-1)" class="w-8 h-8 rounded-lg bg-stone-800 hover:bg-stone-700 text-amber-300 font-black">-</button>
+                  <span id="skullBidInputDisplay" class="w-10 text-center font-black text-amber-400 font-mono text-base">1</span>
+                  <button onclick="adjustSkullBidVal(1)" class="w-8 h-8 rounded-lg bg-stone-800 hover:bg-stone-700 text-amber-300 font-black">+</button>
+                </div>
+                <button id="btnSkullBidSubmit" onclick="handleSkullBidRaise()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs">비딩(도전)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Hand Tray (Player's private cards) -->
+        <div id="skullBottomHandArea" class="hidden flex flex-col gap-2 pt-2 border-t border-amber-900/40 z-10">
+          <div class="flex items-center justify-between text-xs text-amber-200/80 font-medium">
+            <span>내 남은 카드 (비공개 손패):</span>
+            <span id="skullHandGuide" class="text-[11px] text-stone-400">내려놓을 카드를 1장 선택하여 클릭하세요.</span>
+          </div>
+
+          <div class="flex items-center justify-between gap-3">
+            <div id="skullHandRack" class="flex items-center gap-2"></div>
+
+            <button id="btnSkullTriggerChallenge" onclick="handleSkullTriggerChallenge()" class="hidden px-5 py-2.5 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-red-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-stone-950 shadow-lg active:scale-95 transition-all">
+              🔥 비딩(도전) 시작하기
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick Chat & Emotes Bar -->
+      <div class="bg-stone-900/90 border border-stone-800 rounded-2xl p-2.5 sm:p-3 flex items-center gap-2 overflow-x-auto shadow-md">
+        <span class="text-xs font-bold text-stone-400 shrink-0 ml-1">빠른 심리:</span>
+        <button onclick="sendQuickChat('💀 나 해골 깔았다?')" class="px-2.5 py-1 rounded-xl bg-stone-800 hover:bg-stone-700 text-xs font-medium whitespace-nowrap active:scale-95 transition-all">💀 나 해골 깔았다?</button>
+        <button onclick="sendQuickChat('🌹 난 100% 꽃이다')" class="px-2.5 py-1 rounded-xl bg-stone-800 hover:bg-stone-700 text-xs font-medium whitespace-nowrap active:scale-95 transition-all">🌹 난 100% 꽃이다</button>
+        <button onclick="sendQuickChat('👀 뒤집어봐 뒤집어봐')" class="px-2.5 py-1 rounded-xl bg-stone-800 hover:bg-stone-700 text-xs font-medium whitespace-nowrap active:scale-95 transition-all">👀 뒤집어봐 뒤집어봐</button>
+        <button onclick="sendQuickChat('🔥 쫄리면 뒈지시던가')" class="px-2.5 py-1 rounded-xl bg-stone-800 hover:bg-stone-700 text-xs font-medium whitespace-nowrap active:scale-95 transition-all">🔥 쫄리면 뒈지시던가</button>
+        <button onclick="sendQuickChat('😱 으악!! 해골 자폭!!')" class="px-2.5 py-1 rounded-xl bg-stone-800 hover:bg-stone-700 text-xs font-medium whitespace-nowrap active:scale-95 transition-all">😱 으악!! 해골 자폭!!</button>
+      </div>
+    </section>
+
+    <!-- RIGHT: Skull Game Info & Scoreboard (5 cols) -->
+    <section class="lg:col-span-5 flex flex-col gap-3">
+      <!-- Player Status Board -->
+      <div class="bg-stone-900/95 border border-stone-800 rounded-2xl sm:rounded-3xl p-4 shadow-xl flex flex-col gap-3">
+        <div class="flex items-center justify-between pb-2 border-b border-stone-800">
+          <div class="flex items-center gap-2">
+            <span class="text-base">🏆</span>
+            <h3 class="font-bold text-stone-200 text-sm">생존 및 승점 현황</h3>
+          </div>
+          <span class="text-[11px] text-amber-400 font-medium">2점 먼저 획득 시 승리</span>
+        </div>
+
+        <div id="skullScoreRosterList" class="space-y-2"></div>
+      </div>
+
+      <!-- Feed / Chat & Turn Logs Tabs -->
+      <div class="bg-stone-900/90 border border-stone-800 rounded-2xl p-3 shadow-lg flex flex-col min-h-[170px]">
+        <div class="flex items-center justify-between border-b border-stone-800 pb-2 mb-2">
+          <div class="flex items-center gap-2">
+            <button id="skullTabBtnChat" onclick="switchSkullFeedTab('chat')" class="text-xs font-bold text-red-400 pb-1 border-b-2 border-red-400">룸 대화</button>
+            <button id="skullTabBtnLogs" onclick="switchSkullFeedTab('logs')" class="text-xs font-semibold text-stone-400 pb-1 hover:text-stone-200">심리전 기록</button>
+          </div>
+          <span id="skullPlayerOnlineCount" class="text-[10px] text-stone-400 font-medium">참여자: 1명</span>
+        </div>
+
+        <div id="skullChatTabContent" class="flex flex-col flex-1">
+          <div id="skullChatMessageList" class="flex-1 overflow-y-auto max-h-32 text-xs space-y-1.5 pr-1 mb-2">
+            <p class="text-stone-500 italic text-[11px] text-center my-2">클라우드 실시간 멀티플레이 세션입니다.</p>
+          </div>
+          <form onsubmit="handleChatSubmit(event)" class="flex items-center gap-1.5 pt-1 border-t border-stone-800/80">
+            <input id="skullChatInputText" type="text" maxlength="60" placeholder="메시지를 입력하세요..." class="flex-1 bg-stone-800/90 border border-stone-700 rounded-xl px-2.5 py-1 text-xs text-stone-100 focus:outline-none focus:border-red-400">
+            <button type="submit" class="px-3 py-1 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition-colors">전송</button>
+          </form>
+        </div>
+
+        <div id="skullLogsTabContent" class="hidden flex-1 overflow-y-auto max-h-44 text-xs space-y-1 pr-1 font-mono text-stone-300">
+          <p class="text-stone-500 text-[11px]">게임 준비가 완료되었습니다.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL: ROOM LOBBY / PARTICIPANTS -->
+  <div id="lobbyModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-stone-900 border border-stone-700/80 w-full max-w-md rounded-3xl p-5 shadow-2xl relative flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-stone-800">
+        <div>
+          <h2 class="text-lg font-black text-stone-100 flex items-center gap-2">
+            <span>🌐</span> 온라인 멀티플레이 룸
+          </h2>
+          <p class="text-xs text-stone-400">같은 방 코드를 입력하거나 초대 링크로 함께 플레이합니다.</p>
+        </div>
+        <button onclick="closeLobbyModal()" class="w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 flex items-center justify-center text-stone-400 hover:text-stone-100 font-bold">✕</button>
+      </div>
+
+      <div class="bg-stone-950/70 border border-stone-800 rounded-2xl p-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-stone-400 font-bold">현재 방 코드</span>
+          <span id="modalRoomCodeText" class="font-mono text-base font-black text-red-400 tracking-wider">#------</span>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="copyInviteLink()" class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-stone-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95">
+            <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+            초대 링크 복사
+          </button>
+          <button onclick="changeRoomCodeAction()" class="px-3 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold">새 방 생성</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-xs font-bold text-stone-300">내 프로필 & 참가자 목록</h4>
+          <span class="text-[11px] text-amber-400/80 font-medium">최대 6인</span>
+        </div>
+        
+        <div class="flex items-center gap-2 mb-3 bg-stone-800/60 p-2 rounded-xl border border-stone-700/60">
+          <select id="selectMyAvatar" onchange="updateProfileAvatar(this.value)" class="bg-stone-900 border border-stone-700 text-lg rounded-lg p-1">
+            <option value="💀">💀</option>
+            <option value="🎲">🎲</option>
+            <option value="🦊">🦊</option>
+            <option value="🦁">🦁</option>
+            <option value="👑">👑</option>
+            <option value="🧙‍♂️">🧙‍♂️</option>
+            <option value="🐱">🐱</option>
+          </select>
+          <input id="inputMyName" type="text" maxlength="10" placeholder="내 닉네임" onchange="updateProfileName(this.value)" class="flex-1 bg-stone-900 border border-stone-700 rounded-lg px-2.5 py-1.5 text-xs text-stone-100 focus:outline-none focus:border-red-400">
+        </div>
+
+        <div id="rosterList" class="space-y-2 max-h-40 overflow-y-auto pr-1"></div>
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-stone-800 text-xs">
+        <button onclick="addBotPlayerAction()" class="px-3 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-300 font-semibold flex items-center gap-1.5">
+          <span>+ 전략 AI 봇 추가</span>
+        </button>
+        <button onclick="resetCurrentGameAction()" class="px-3 py-1.5 rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-800/60 text-red-300 font-semibold">
+          게임 다시 시작 (대기실로)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: RULES -->
+  <div id="rulesModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-stone-900 border border-stone-700/80 w-full max-w-lg rounded-3xl p-5 shadow-2xl relative flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-2 border-b border-stone-800">
+        <h2 id="rulesModalTitle" class="text-base font-extrabold text-amber-300 flex items-center gap-2">
+          <span>📜</span> 스컬(Skull & Roses) 공식 룰
+        </h2>
+        <button onclick="closeRulesModal()" class="w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 flex items-center justify-center text-stone-400 hover:text-stone-100 font-bold">✕</button>
+      </div>
+      <div id="rulesModalBody" class="text-xs text-stone-300 space-y-3 leading-relaxed">
+        <p><strong class="text-amber-400">1. 카드 구성:</strong> 각 플레이어는 장미 3장 + 해골 1장 (총 4장)을 들고 시작합니다.</p>
+        <p><strong class="text-amber-400">2. 카드 놓기:</strong> 턴마다 자기 매트에 카드를 1장씩 뒷면으로 내려놓습니다. 모두 1장 이상 놓았다면 카드를 놓는 대신 [비딩(도전)]을 선언할 수 있습니다.</p>
+        <p><strong class="text-amber-400">3. 비딩(경매):</strong> "내가 해골 없이 꽃을 N장 뒤집을 수 있다"고 선언하며 숫자를 올립니다. 패스하지 않고 가장 높은 숫자를 부른 사람이 도전자가 됩니다.</p>
+        <p><strong class="text-amber-400">4. 뒤집기:</strong> 도전자는 <strong>반드시 자기 카드부터 전부</strong> 뒤집어야 하며, 이후 다른 사람의 맨 위 카드들을 목표 수량만큼 뒤집습니다.</p>
+        <div class="bg-stone-950 p-3 rounded-xl border border-stone-800 space-y-1.5 font-sans">
+          <p><span class="text-emerald-400 font-bold">도전 성공:</span> 해골 없이 목표 장수를 모두 뒤집으면 승점 1점 획득! <strong>(2점 획득 시 최종 우승!)</strong></p>
+          <p><span class="text-red-400 font-bold">도전 실패:</span> 해골이 1장이라도 나오면 즉시 실패하며, 내 카드 1장이 영구 소멸됩니다. (카드가 모두 소진되면 탈락)</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: GAME OVER & RANKINGS -->
+  <div id="gameOverModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-stone-900 border border-amber-500/50 w-full max-w-md rounded-3xl p-6 shadow-2xl relative flex flex-col items-center text-center gap-4">
+      <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center text-3xl shadow-xl shadow-amber-500/30">
+        🏆
+      </div>
+      <div>
+        <h2 class="text-2xl font-black text-amber-300 font-brand">GAME OVER!</h2>
+        <p id="winnerAnnouncementText" class="text-sm text-stone-300 mt-1">승자가 결정되었습니다!</p>
+      </div>
+      <div id="finalRankingsList" class="w-full bg-stone-950/80 border border-stone-800 rounded-2xl p-3 space-y-2 text-xs"></div>
+      <div class="w-full flex gap-2">
+        <button onclick="resetCurrentGameAction()" class="flex-1 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs tracking-wider uppercase transition-all shadow-lg active:scale-95">
+          새 게임 대기실
+        </button>
+        <a href="index.html" class="px-4 py-3 rounded-2xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold text-xs transition-all flex items-center justify-center active:scale-95">
+          로비 홈
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col gap-2 items-center"></div>
+
+  <script>
+    let audioCtx = null;
+    let isMuted = false;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) audioCtx = new AudioContextClass();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function playSynthSound(type) {
+      if (isMuted) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+
+        if (type === 'card_play') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(580, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.09);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.09);
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.start(now); osc.stop(now + 0.1);
+        } else if (type === 'score' || type === 'ready') {
+          const freqs = type === 'ready' ? [440, 660] : [523.25, 659.25, 783.99];
+          freqs.forEach((f, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(f, now + idx * 0.07);
+            gain.gain.setValueAtTime(0.25, now + idx * 0.07);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.22);
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.start(now + idx * 0.07); osc.stop(now + idx * 0.07 + 0.23);
+          });
+        } else if (type === 'start') {
+          const freqs = [392, 523.25, 659.25, 783.99];
+          freqs.forEach((f, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(f, now + idx * 0.08);
+            gain.gain.setValueAtTime(0.3, now + idx * 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.35);
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.start(now + idx * 0.08); osc.stop(now + idx * 0.08 + 0.38);
+          });
+        } else if (type === 'skull_death') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(180, now);
+          osc.frequency.exponentialRampToValueAtTime(50, now + 0.5);
+          gain.gain.setValueAtTime(0.4, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.start(now); osc.stop(now + 0.52);
+        } else if (type === 'win_point') {
+          const chord = [523.25, 659.25, 783.99, 1046.50];
+          chord.forEach((f) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(f, now);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.start(now); osc.stop(now + 0.85);
+          });
+        }
+      } catch (e) {}
+    }
+
+    function toggleAudioMute() {
+      isMuted = !isMuted;
+      document.getElementById('svgSoundOn').classList.toggle('hidden', isMuted);
+      document.getElementById('svgSoundOff').classList.toggle('hidden', !isMuted);
+      showToast(isMuted ? '효과음이 꺼졌습니다.' : '효과음이 켜졌습니다.', 'info');
+    }
+
+    let sessionUid = sessionStorage.getItem('blounge_tab_uid');
+    if (!sessionUid) {
+      sessionUid = 'usr_' + Math.random().toString(36).substring(2, 8);
+      sessionStorage.setItem('blounge_tab_uid', sessionUid);
+    }
+
+    const defaultNames = ['블러핑마스터', '해골장인', '장미승부사', '원초적승부사'];
+    const randomDefaultName = defaultNames[Math.floor(Math.random() * defaultNames.length)] + '_' + Math.random().toString(36).substring(2, 5);
+
+    let sessionName = sessionStorage.getItem('blounge_tab_name') || localStorage.getItem('blounge_global_name') || randomDefaultName;
+    let sessionAvatar = sessionStorage.getItem('blounge_tab_avatar') || localStorage.getItem('blounge_global_avatar') || '💀';
+
+    let myProfile = { id: sessionUid, name: sessionName, avatar: sessionAvatar };
+
+    const urlParams = new URLSearchParams(window.location.search);
+    let currentRoomCode = (urlParams.get('room') || 'SKULL1').toUpperCase();
+    let isHost = urlParams.get('host') === '1';
+
+    let syncChannel = null;
+    let processedActionIds = new Set();
+
+    // ==========================================
+    // FIREBASE CLOUD REALTIME CONFIG & SYNC
+    // ==========================================
+    const BUILTIN_FIREBASE_CONFIG = {
+      apiKey: "AIzaSyBZMFQKNjnzhP16zmzFtOCtAeNhsmFemSM",
+      authDomain: "boardgame-eaaf1.firebaseapp.com",
+      projectId: "boardgame-eaaf1",
+      storageBucket: "boardgame-eaaf1.firebasestorage.app",
+      messagingSenderId: "367291000875",
+      appId: "1:367291000875:web:e93fce0941ec885548e26e",
+      measurementId: "G-07BHDHWHC7"
+    };
+
+    let firestoreDb = null;
+    let firestoreUnsubscribe = null;
+
+    function initFirebaseCloudSync() {
+      try {
+        let configToUse = BUILTIN_FIREBASE_CONFIG;
+        const savedConfigStr = localStorage.getItem('blounge_firebase_config');
+        if (savedConfigStr) {
+          try { configToUse = JSON.parse(savedConfigStr); } catch (e) {}
+        }
+
+        if (!firebase.apps.length) {
+          firebase.initializeApp(configToUse);
+        }
+        firestoreDb = firebase.firestore();
+
+        // Listen for realtime packet room updates
+        const roomDocRef = firestoreDb.collection('blounge_rooms').doc('skull_' + currentRoomCode);
+        firestoreUnsubscribe = roomDocRef.onSnapshot((doc) => {
+          if (doc.exists) {
+            const data = doc.data();
+            if (data && data.lastPacket) {
+              handleIncomingPacket(data.lastPacket);
+            }
+          }
+        }, (err) => {
+          console.warn('Firestore cloud sync notice:', err);
+        });
+      } catch (err) {
+        console.warn('Firebase init fallback:', err);
+      }
+    }
+
+    function createSkullPlayerObj(id, name, avatar, isBot = false, isReady = false) {
+      return {
+        id, name, avatar, isBot, isReady,
+        hand: ['FLOWER', 'FLOWER', 'FLOWER', 'SKULL'],
+        playedStack: [], score: 0, isEliminated: false
+      };
+    }
+
+    let skullState = {
+      isGameStarted: false,
+      phase: 'WAITING',
+      currentTurnIndex: 0,
+      challengerId: null,
+      targetBid: 0,
+      currentHighBid: 0,
+      highBidderId: null,
+      passedPlayerIds: [],
+      flippedCount: 0,
+      flippedCards: [],
+      isGameOver: false,
+      winnerId: null,
+      players: [createSkullPlayerObj(myProfile.id, myProfile.name, myProfile.avatar, false, true)]
+    };
+
+    let localSkullBidInputVal = 1;
+
+    function initNetworkSession() {
+      document.getElementById('headerRoomCode').textContent = `ROOM: #${currentRoomCode}`;
+      document.getElementById('modalRoomCodeText').textContent = `#${currentRoomCode}`;
+
+      // 1. BroadcastChannel (fast local tab sync)
+      try {
+        if (window.BroadcastChannel) {
+          syncChannel = new BroadcastChannel('blounge_skull_' + currentRoomCode);
+          syncChannel.onmessage = (e) => handleIncomingPacket(e.data);
+        }
+      } catch (err) {}
+
+      // 2. LocalStorage storage event fallback
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'blounge_skull_pkt_' + currentRoomCode && e.newValue) {
+          try { handleIncomingPacket(JSON.parse(e.newValue)); } catch (e) {}
+        }
+      });
+
+      // 3. Firebase Cloud Realtime Sync (cross-device)
+      initFirebaseCloudSync();
+
+      broadcastPacket({ type: 'PLAYER_JOIN', profile: myProfile });
+
+      if (!isHost) {
+        broadcastPacket({ type: 'REQUEST_SYNC' });
+        setTimeout(() => { if (!isHost) broadcastPacket({ type: 'REQUEST_SYNC' }); }, 350);
+      }
+    }
+
+    function broadcastPacket(data) {
+      data.senderId = myProfile.id;
+      data.timestamp = Date.now();
+      if (!data.actionId) {
+        data.actionId = 'act_' + Math.random().toString(36).substring(2, 9) + '_' + data.timestamp;
+      }
+      if (syncChannel) {
+        try { syncChannel.postMessage(data); } catch (e) {}
+      }
+      try {
+        localStorage.setItem('blounge_skull_pkt_' + currentRoomCode, JSON.stringify(data));
+      } catch (e) {}
+
+      // Cloud Realtime Firestore Push
+      if (firestoreDb) {
+        try {
+          firestoreDb.collection('blounge_rooms').doc('skull_' + currentRoomCode).set({
+            lastPacket: data,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true }).catch(() => {});
+        } catch (e) {}
+      }
+    }
+
+    function broadcastGameState() {
+      if (!isHost) return;
+      broadcastPacket({ type: 'SYNC_SKULL_STATE', state: skullState });
+    }
+
+    function handleIncomingPacket(data) {
+      if (!data || data.senderId === myProfile.id) return;
+      if (data.actionId) {
+        if (processedActionIds.has(data.actionId)) return;
+        processedActionIds.add(data.actionId);
+        if (processedActionIds.size > 200) processedActionIds = new Set(Array.from(processedActionIds).slice(100));
+      }
+
+      switch (data.type) {
+        case 'PLAYER_JOIN': {
+          if (isHost) {
+            let existing = skullState.players.find(p => p.id === data.profile.id);
+            if (!existing && skullState.players.length < 6) {
+              skullState.players.push(createSkullPlayerObj(data.profile.id, data.profile.name, data.profile.avatar, false, false));
+            } else if (existing) {
+              existing.name = data.profile.name;
+              existing.avatar = data.profile.avatar;
+            }
+            broadcastGameState();
+            renderSkullAll();
+          }
+          appendChatMessage('SYSTEM', `${data.profile.avatar} ${data.profile.name}님이 입장하셨습니다.`);
+          break;
+        }
+
+        case 'REQUEST_SYNC': {
+          if (isHost) broadcastGameState();
+          break;
+        }
+
+        case 'SYNC_SKULL_STATE': {
+          skullState = data.state;
+          renderSkullAll();
+          if (skullState.isGameOver && skullState.winnerId) {
+            const winner = skullState.players.find(p => p.id === skullState.winnerId);
+            if (winner) showSkullGameOverModal(winner);
+          }
+          break;
+        }
+
+        case 'ACTION_TOGGLE_READY': {
+          if (isHost) {
+            const guest = skullState.players.find(p => p.id === data.playerId);
+            if (guest) {
+              guest.isReady = data.isReady;
+              playSynthSound('ready');
+              showToast(`${guest.name}님이 ${guest.isReady ? '준비 완료' : '준비 취소'}했습니다.`, 'info');
+              broadcastGameState();
+              renderSkullAll();
+            }
+          }
+          break;
+        }
+
+        case 'SKULL_ACTION_PLAY_CARD': {
+          if (isHost && skullState.isGameStarted) executeSkullPlayCard(data.playerId, data.cardType);
+          break;
+        }
+        case 'SKULL_ACTION_START_BID': {
+          if (isHost && skullState.isGameStarted) executeSkullStartBidding(data.playerId, data.bidVal);
+          break;
+        }
+        case 'SKULL_ACTION_RAISE_BID': {
+          if (isHost && skullState.isGameStarted) executeSkullRaiseBid(data.playerId, data.bidVal);
+          break;
+        }
+        case 'SKULL_ACTION_PASS_BID': {
+          if (isHost && skullState.isGameStarted) executeSkullPassBid(data.playerId);
+          break;
+        }
+        case 'SKULL_ACTION_FLIP_CARD': {
+          if (isHost && skullState.isGameStarted) executeSkullFlipCard(data.targetPlayerId);
+          break;
+        }
+        case 'CHAT_MSG': {
+          appendChatMessage(data.senderName, data.text);
+          break;
+        }
+      }
+    }
+
+    function areAllGuestsReady() {
+      if (skullState.players.length < 2) return false;
+      for (let i = 1; i < skullState.players.length; i++) {
+        const p = skullState.players[i];
+        if (p.isBot) continue;
+        if (!p.isReady) return false;
+      }
+      return true;
+    }
+
+    function startSkullGameByHost() {
+      if (!isHost) return;
+      if (skullState.players.length < 2 || !areAllGuestsReady()) return;
+
+      skullState.isGameStarted = true;
+      skullState.phase = 'PLACING';
+      skullState.currentTurnIndex = 0;
+      skullState.isGameOver = false;
+      skullState.winnerId = null;
+      skullState.challengerId = null;
+      skullState.targetBid = 0;
+      skullState.currentHighBid = 0;
+      skullState.highBidderId = null;
+      skullState.passedPlayerIds = [];
+      skullState.flippedCount = 0;
+      skullState.flippedCards = [];
+
+      skullState.players.forEach(p => {
+        p.hand = ['FLOWER', 'FLOWER', 'FLOWER', 'SKULL'];
+        p.playedStack = [];
+        p.score = 0;
+        p.isEliminated = false;
+      });
+
+      playSynthSound('start');
+      fireConfetti();
+      showToast('💀 스컬 게임이 시작되었습니다! 카드를 내려놓으세요.', 'success');
+      logSkullHistory('게임이 시작되었습니다. 모든 플레이어는 카드를 1장씩 내려놓습니다.');
+
+      broadcastGameState();
+      renderSkullAll();
+      checkAndTriggerSkullBotTurn();
+    }
+
+    function executeSkullPlayCard(playerId, cardType) {
+      if (!isHost || skullState.phase !== 'PLACING') return;
+      const player = skullState.players[skullState.currentTurnIndex];
+      if (!player || player.id !== playerId || player.isEliminated) return;
+
+      const cardIdx = player.hand.indexOf(cardType);
+      if (cardIdx === -1) {
+        if (getTotalCardsOnAllMats() >= 1) executeSkullStartBidding(playerId, 1);
+        return;
+      }
+
+      player.hand.splice(cardIdx, 1);
+      player.playedStack.push({ type: cardType, revealed: false });
+
+      playSynthSound('card_play');
+      logSkullHistory(`${player.name}님이 카드를 1장 매트에 내려놓았습니다.`);
+      advanceSkullTurnPlacing();
+    }
+
+    function advanceSkullTurnPlacing() {
+      if (!isHost) return;
+      let nextIndex = (skullState.currentTurnIndex + 1) % skullState.players.length;
+      let count = 0;
+      while (skullState.players[nextIndex].isEliminated && count < skullState.players.length) {
+        nextIndex = (nextIndex + 1) % skullState.players.length;
+        count++;
+      }
+      skullState.currentTurnIndex = nextIndex;
+      broadcastGameState();
+      renderSkullAll();
+      checkAndTriggerSkullBotTurn();
+    }
+
+    function executeSkullStartBidding(playerId, initialBid = 1) {
+      if (!isHost) return;
+      const player = skullState.players.find(p => p.id === playerId);
+      if (!player || player.isEliminated) return;
+
+      skullState.phase = 'BIDDING';
+      skullState.currentHighBid = initialBid;
+      skullState.highBidderId = playerId;
+      skullState.passedPlayerIds = [];
+
+      logSkullHistory(`🔥 ${player.name}님이 비딩을 선언했습니다! (꽃 ${initialBid}장)`);
+      showToast(`🔥 ${player.name}님이 꽃 ${initialBid}장 비딩을 시작했습니다!`, 'info');
+      advanceSkullTurnBidding();
+    }
+
+    function executeSkullRaiseBid(playerId, newBidVal) {
+      if (!isHost || skullState.phase !== 'BIDDING') return;
+      const player = skullState.players[skullState.currentTurnIndex];
+      if (!player || player.id !== playerId) return;
+      if (newBidVal <= skullState.currentHighBid) return;
+      const totalCards = getTotalCardsOnAllMats();
+      if (newBidVal > totalCards) return;
+
+      skullState.currentHighBid = newBidVal;
+      skullState.highBidderId = playerId;
+
+      logSkullHistory(`${player.name}님이 비딩을 올렸습니다: 꽃 ${newBidVal}장!`);
+      showToast(`${player.name}: 꽃 ${newBidVal}장!`, 'info');
+
+      if (newBidVal >= totalCards) {
+        finishSkullBiddingPhase();
+        return;
+      }
+      advanceSkullTurnBidding();
+    }
+
+    function executeSkullPassBid(playerId) {
+      if (!isHost || skullState.phase !== 'BIDDING') return;
+      const player = skullState.players[skullState.currentTurnIndex];
+      if (!player || player.id !== playerId) return;
+
+      if (!skullState.passedPlayerIds.includes(playerId)) skullState.passedPlayerIds.push(playerId);
+      logSkullHistory(`${player.name}님이 비딩을 패스했습니다.`);
+
+      const activeBidders = skullState.players.filter(p => !p.isEliminated && !skullState.passedPlayerIds.includes(p.id));
+      if (activeBidders.length <= 1) {
+        finishSkullBiddingPhase();
+      } else {
+        advanceSkullTurnBidding();
+      }
+    }
+
+    function advanceSkullTurnBidding() {
+      if (!isHost) return;
+      let nextIndex = (skullState.currentTurnIndex + 1) % skullState.players.length;
+      let count = 0;
+      while ((skullState.players[nextIndex].isEliminated || skullState.passedPlayerIds.includes(skullState.players[nextIndex].id)) && count < skullState.players.length) {
+        nextIndex = (nextIndex + 1) % skullState.players.length;
+        count++;
+      }
+      skullState.currentTurnIndex = nextIndex;
+      broadcastGameState();
+      renderSkullAll();
+      checkAndTriggerSkullBotTurn();
+    }
+
+    function finishSkullBiddingPhase() {
+      if (!isHost) return;
+      skullState.phase = 'FLIPPING';
+      skullState.challengerId = skullState.highBidderId;
+      skullState.targetBid = skullState.currentHighBid;
+      skullState.flippedCount = 0;
+      skullState.flippedCards = [];
+
+      const challengerIdx = skullState.players.findIndex(p => p.id === skullState.challengerId);
+      if (challengerIdx !== -1) skullState.currentTurnIndex = challengerIdx;
+
+      const challenger = skullState.players.find(p => p.id === skullState.challengerId);
+      logSkullHistory(`🎯 최종 도전자: ${challenger.name}! (목표: 꽃 ${skullState.targetBid}장 뒤집기)`);
+      showToast(`🎯 도전자: ${challenger.name} (목표: ${skullState.targetBid}장)`, 'success');
+
+      broadcastGameState();
+      renderSkullAll();
+      checkAndTriggerSkullBotTurn();
+    }
+
+    function executeSkullFlipCard(targetPlayerId) {
+      if (!isHost || skullState.phase !== 'FLIPPING') return;
+      const challenger = skullState.players.find(p => p.id === skullState.challengerId);
+      if (!challenger) return;
+
+      const myUnrevealed = challenger.playedStack.filter(c => !c.revealed);
+      if (myUnrevealed.length > 0 && targetPlayerId !== challenger.id) {
+        showToast('도전자는 본인의 매트에 놓인 카드부터 모두 뒤집어야 합니다!', 'info');
+        return;
+      }
+
+      const targetPlayer = skullState.players.find(p => p.id === targetPlayerId);
+      if (!targetPlayer || targetPlayer.playedStack.length === 0) return;
+
+      let topCard = null;
+      for (let i = targetPlayer.playedStack.length - 1; i >= 0; i--) {
+        if (!targetPlayer.playedStack[i].revealed) {
+          topCard = targetPlayer.playedStack[i];
+          break;
+        }
+      }
+      if (!topCard) return;
+
+      topCard.revealed = true;
+      skullState.flippedCount++;
+      skullState.flippedCards.push({ ownerId: targetPlayer.id, ownerName: targetPlayer.name, type: topCard.type });
+
+      if (topCard.type === 'SKULL') {
+        playSynthSound('skull_death');
+        logSkullHistory(`💀 으악! ${targetPlayer.name}님의 매트에서 [해골]이 뒤집혔습니다! 도전 실패!`);
+        showToast(`💀 해골 발동! ${challenger.name}님의 도전 실패!`, 'info');
+        handleSkullChallengeFailure(challenger);
+      } else {
+        playSynthSound('score');
+        logSkullHistory(`🌹 ${targetPlayer.name}님의 [장미]가 뒤집혔습니다! (${skullState.flippedCount}/${skullState.targetBid})`);
+
+        if (skullState.flippedCount >= skullState.targetBid) {
+          playSynthSound('win_point');
+          challenger.score++;
+          logSkullHistory(`🎉 도전 대성공! ${challenger.name}님이 승점 1점을 획득했습니다! (총 ${challenger.score}점)`);
+          showToast(`🎉 도전 성공! ${challenger.name} 승점 1점 획득!`, 'success');
+
+          if (challenger.score >= 2) {
+            endSkullGame(challenger);
+            return;
+          }
+          resetSkullRound(challenger.id);
+        } else {
+          broadcastGameState();
+          renderSkullAll();
+          checkAndTriggerSkullBotTurn();
+        }
+      }
+    }
+
+    function handleSkullChallengeFailure(challenger) {
+      if (!isHost) return;
+      let cardLossPool = [...challenger.hand, ...challenger.playedStack.map(c => c.type)];
+      if (cardLossPool.length > 0) {
+        const lostIdx = Math.floor(Math.random() * cardLossPool.length);
+        const lostCardType = cardLossPool[lostIdx];
+        logSkullHistory(`💥 벌칙: ${challenger.name}님의 카드 1장(${lostCardType === 'SKULL' ? '해골' : '장미'})이 영구 소멸했습니다.`);
+        cardLossPool.splice(lostIdx, 1);
+        challenger.hand = cardLossPool;
+        challenger.playedStack = [];
+
+        if (cardLossPool.length <= 0) {
+          challenger.isEliminated = true;
+          logSkullHistory(`☠️ 카드를 모두 잃은 ${challenger.name}님이 게임에서 영구 탈락했습니다!`);
+          showToast(`☠️ ${challenger.name} 탈락!`, 'info');
+        }
+      }
+
+      const alivePlayers = skullState.players.filter(p => !p.isEliminated);
+      if (alivePlayers.length === 1) {
+        endSkullGame(alivePlayers[0]);
+        return;
+      }
+      resetSkullRound(challenger.id);
+    }
+
+    function resetSkullRound(startingLeaderId) {
+      if (!isHost) return;
+      skullState.phase = 'PLACING';
+      skullState.challengerId = null;
+      skullState.targetBid = 0;
+      skullState.currentHighBid = 0;
+      skullState.highBidderId = null;
+      skullState.passedPlayerIds = [];
+      skullState.flippedCount = 0;
+      skullState.flippedCards = [];
+
+      skullState.players.forEach(p => {
+        if (!p.isEliminated) {
+          p.hand = [...p.hand, ...p.playedStack.map(c => c.type)];
+          p.playedStack = [];
+        }
+      });
+
+      let leaderIdx = skullState.players.findIndex(p => p.id === startingLeaderId && !p.isEliminated);
+      if (leaderIdx === -1) leaderIdx = skullState.players.findIndex(p => !p.isEliminated);
+      skullState.currentTurnIndex = leaderIdx >= 0 ? leaderIdx : 0;
+
+      logSkullHistory(`새 라운드가 시작되었습니다. 선: ${skullState.players[skullState.currentTurnIndex].name}`);
+      broadcastGameState();
+      renderSkullAll();
+      checkAndTriggerSkullBotTurn();
+    }
+
+    function endSkullGame(winner) {
+      skullState.isGameOver = true;
+      skullState.phase = 'GAME_OVER';
+      skullState.winnerId = winner.id;
+      fireConfetti();
+      playSynthSound('win_point');
+      logSkullHistory(`👑 게임 종료! ${winner.name}님이 최종 승리했습니다!`);
+      renderSkullAll();
+      showSkullGameOverModal(winner);
+      broadcastGameState();
+    }
+
+    function showSkullGameOverModal(winner) {
+      const modal = document.getElementById('gameOverModal');
+      const list = document.getElementById('finalRankingsList');
+      list.innerHTML = '';
+      document.getElementById('winnerAnnouncementText').textContent = `🎉 ${winner.avatar} ${winner.name}님이 스컬 승점 2점을 달성하여 최종 우승했습니다!`;
+
+      skullState.players.forEach((p) => {
+        const item = document.createElement('div');
+        item.className = `flex items-center justify-between p-2 rounded-xl ${p.id === winner.id ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black' : 'bg-stone-900 text-stone-300'}`;
+        item.innerHTML = `
+          <div class="flex items-center gap-2"><span class="font-bold w-4">${p.id === winner.id ? '1위' : '-'}</span><span>${p.avatar} ${p.name}</span></div>
+          <span class="font-mono font-bold">${p.isEliminated ? '탈락 ☠️' : `승점: ${p.score}점`}</span>
+        `;
+        list.appendChild(item);
+      });
+      modal.classList.remove('hidden');
+    }
+
+    function getTotalCardsOnAllMats() {
+      let count = 0;
+      skullState.players.forEach(p => { if (!p.isEliminated) count += p.playedStack.length; });
+      return count;
+    }
+
+    function checkAndTriggerSkullBotTurn() {
+      if (!isHost || !skullState.isGameStarted || skullState.isGameOver) return;
+      const current = skullState.players[skullState.currentTurnIndex];
+      if (current && current.isBot && !current.isEliminated) {
+        setTimeout(() => runSkullBotBrain(current), 1000);
+      }
+    }
+
+    function runSkullBotBrain(bot) {
+      if (skullState.isGameOver || !isHost) return;
+
+      if (skullState.phase === 'PLACING') {
+        const everyoneHasOne = skullState.players.filter(p => !p.isEliminated).every(p => p.playedStack.length >= 1);
+        const hasNoCardsLeft = bot.hand.length === 0;
+        const totalCards = getTotalCardsOnAllMats();
+        const shouldStartBid = hasNoCardsLeft || (everyoneHasOne && Math.random() < 0.35 && bot.playedStack.length >= 1);
+
+        if (shouldStartBid && totalCards >= 1) {
+          executeSkullStartBidding(bot.id, 1);
+        } else {
+          let cardToPlay = 'FLOWER';
+          if (bot.hand.includes('SKULL') && Math.random() < 0.3) cardToPlay = 'SKULL';
+          else if (!bot.hand.includes('FLOWER')) cardToPlay = 'SKULL';
+
+          if (bot.hand.length === 0) executeSkullStartBidding(bot.id, 1);
+          else executeSkullPlayCard(bot.id, cardToPlay);
+        }
+      } else if (skullState.phase === 'BIDDING') {
+        const totalCards = getTotalCardsOnAllMats();
+        const curBid = skullState.currentHighBid;
+        const hasSkullOnMyMat = bot.playedStack.some(c => c.type === 'SKULL');
+        const maxComfortBid = hasSkullOnMyMat ? Math.min(2, totalCards) : Math.min(bot.playedStack.length + 1, totalCards);
+
+        if (curBid < maxComfortBid && curBid < totalCards && Math.random() < 0.6) {
+          executeSkullRaiseBid(bot.id, curBid + 1);
+        } else {
+          executeSkullPassBid(bot.id);
+        }
+      } else if (skullState.phase === 'FLIPPING') {
+        if (skullState.challengerId !== bot.id) return;
+        const myUnrevealed = bot.playedStack.filter(c => !c.revealed);
+        if (myUnrevealed.length > 0) {
+          executeSkullFlipCard(bot.id);
+          return;
+        }
+        const availableTargets = skullState.players.filter(p => p.id !== bot.id && !p.isEliminated && p.playedStack.some(c => !c.revealed));
+        if (availableTargets.length > 0) {
+          const chosenTarget = availableTargets[Math.floor(Math.random() * availableTargets.length)];
+          executeSkullFlipCard(chosenTarget.id);
+        }
+      }
+    }
+
+    function isMySkullTurn() {
+      if (!skullState.isGameStarted) return false;
+      const active = skullState.players[skullState.currentTurnIndex];
+      if (!active) return false;
+      return active.id === myProfile.id || (active.name === myProfile.name && !active.isBot);
+    }
+
+    function renderSkullAll() {
+      renderSkullBadge();
+      renderSkullStageLayout();
+      renderSkullRoster();
+      renderLobbyRoster();
+    }
+
+    function renderSkullBadge() {
+      const active = skullState.players[skullState.currentTurnIndex] || skullState.players[0];
+      const badgePhase = document.getElementById('skullBadgePhaseTitle');
+      const badgeAvatar = document.getElementById('skullBadgeAvatar');
+      const badgeName = document.getElementById('skullBadgeName');
+
+      if (!skullState.isGameStarted) {
+        badgePhase.textContent = 'STATUS: 대기 중';
+        badgeAvatar.textContent = '⏳';
+        badgeName.textContent = '게임 대기실';
+      } else {
+        badgeAvatar.textContent = active ? active.avatar : '💀';
+        badgeName.textContent = (active ? active.name : '') + (isMySkullTurn() ? ' (나)' : '');
+        if (skullState.phase === 'PLACING') badgePhase.textContent = 'PHASE: 카드 놓기';
+        else if (skullState.phase === 'BIDDING') badgePhase.textContent = `PHASE: 비딩 경매 (${skullState.currentHighBid}장)`;
+        else if (skullState.phase === 'FLIPPING') badgePhase.textContent = `PHASE: 뒤집기 (${skullState.flippedCount}/${skullState.targetBid})`;
+        else badgePhase.textContent = 'PHASE: 라운드 정산';
+      }
+    }
+
+    function renderSkullStageLayout() {
+      const waitingArea = document.getElementById('skullWaitingRoomArea');
+      const activeArea = document.getElementById('skullActiveGameArea');
+      const bottomHand = document.getElementById('skullBottomHandArea');
+      const promptGuide = document.getElementById('skullActionGuidePrompt');
+
+      if (!skullState.isGameStarted) {
+        waitingArea.classList.remove('hidden');
+        activeArea.classList.add('hidden');
+        bottomHand.classList.add('hidden');
+        renderSkullWaitingRoom();
+      } else {
+        waitingArea.classList.add('hidden');
+        activeArea.classList.remove('hidden');
+        bottomHand.classList.remove('hidden');
+
+        if (promptGuide) {
+          if (skullState.phase === 'PLACING') {
+            promptGuide.textContent = isMySkullTurn() ? '내려놓을 카드를 아래 손패에서 선택하세요.' : '상대방이 카드를 내려놓기를 기다리는 중입니다...';
+          } else if (skullState.phase === 'BIDDING') {
+            promptGuide.textContent = '비딩이 진행 중입니다. 더 높은 숫자를 부르거나 패스하세요!';
+          } else if (skullState.phase === 'FLIPPING') {
+            const challenger = skullState.players.find(p => p.id === skullState.challengerId);
+            const isMe = challenger && (challenger.id === myProfile.id || challenger.name === myProfile.name);
+            const myUnrevealed = challenger ? challenger.playedStack.filter(c => !c.revealed).length : 0;
+            if (isMe) {
+              promptGuide.textContent = (myUnrevealed > 0) ? `🎯 본인 매트의 미공개 카드(${myUnrevealed}장)부터 먼저 뒤집으세요!` : `👉 상대방 매트의 맨 위 카드를 클릭하여 뒤집으세요!`;
+            } else {
+              promptGuide.textContent = `👀 ${challenger ? challenger.name : '도전자'}님이 카드를 신중히 뒤집고 있습니다...`;
+            }
+          }
+        }
+        renderSkullMats();
+        renderSkullBiddingControls();
+        renderSkullHand();
+      }
+    }
+
+    function renderSkullWaitingRoom() {
+      const chipsContainer = document.getElementById('skullWaitingPlayersChips');
+      const guideText = document.getElementById('skullWaitingRoomGuideText');
+      const btnAction = document.getElementById('btnSkullLobbyAction');
+
+      chipsContainer.innerHTML = '';
+      skullState.players.forEach((p, idx) => {
+        const isHostPlayer = (idx === 0);
+        const isMe = (p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+        const chip = document.createElement('div');
+        let statusBadge = '';
+        if (isHostPlayer) statusBadge = `<span class="text-[10px] bg-red-500/20 text-red-300 border border-red-500/40 px-1.5 py-0.5 rounded-full font-bold">방장 👑</span>`;
+        else if (p.isBot || p.isReady) statusBadge = `<span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded-full font-bold">준비 완료 ✔</span>`;
+        else statusBadge = `<span class="text-[10px] bg-stone-800 text-stone-400 border border-stone-700 px-1.5 py-0.5 rounded-full font-medium">대기 중 ⏳</span>`;
+
+        chip.className = `p-2.5 rounded-2xl border flex items-center justify-between text-xs backdrop-blur ${
+          (isHostPlayer || p.isReady || p.isBot) ? 'bg-stone-900/90 border-amber-700/50 text-stone-200' : 'bg-stone-950/90 border-stone-800 text-stone-400'
+        }`;
+        chip.innerHTML = `
+          <div class="flex items-center gap-1.5 truncate"><span>${p.avatar}</span><span class="font-bold truncate max-w-[80px] sm:max-w-[110px]">${p.name}${isMe ? ' (나)' : ''}</span></div>
+          <div>${statusBadge}</div>
+        `;
+        chipsContainer.appendChild(chip);
+      });
+
+      const me = skullState.players.find(p => p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+      const allReady = areAllGuestsReady();
+
+      if (isHost) {
+        btnAction.disabled = (skullState.players.length < 2 || !allReady);
+        btnAction.className = `w-full py-3 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-xl flex items-center justify-center gap-2 ${
+          (skullState.players.length >= 2 && allReady) ? 'bg-gradient-to-r from-red-600 via-amber-500 to-amber-400 hover:from-red-500 hover:to-amber-300 text-stone-950 active:scale-95 shadow-red-500/25 cursor-pointer ring-2 ring-amber-400/60' : 'bg-stone-800 text-stone-500 border border-stone-700 cursor-not-allowed opacity-60'
+        }`;
+        if (skullState.players.length < 2) {
+          guideText.textContent = '다른 친구가 접속하거나 [룸 관리]에서 봇을 추가하세요.';
+          btnAction.innerHTML = `<span>플레이어 2인 이상 대기 중...</span>`;
+        } else if (!allReady) {
+          guideText.textContent = '게스트가 준비 완료할 때까지 대기 중입니다.';
+          btnAction.innerHTML = `<span>게스트 준비 대기 중...</span>`;
+        } else {
+          guideText.textContent = '모든 참가자가 준비 완료되었습니다! 스컬 게임을 시작하세요.';
+          btnAction.innerHTML = `<span>스컬 게임 시작 (START GAME)</span>`;
+        }
+      } else {
+        const isReady = me ? !!me.isReady : false;
+        btnAction.disabled = false;
+        btnAction.className = `w-full py-3 rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-xl active:scale-95 flex items-center justify-center gap-2 cursor-pointer ${
+          isReady ? 'bg-emerald-600 hover:bg-emerald-500 text-stone-950 ring-2 ring-emerald-400 shadow-emerald-600/30' : 'bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-600'
+        }`;
+        btnAction.innerHTML = isReady ? `<span>준비 완료 취소 (READY ON)</span>` : `<span>게임 준비 완료 (READY)</span>`;
+      }
+    }
+
+    function renderSkullMats() {
+      const grid = document.getElementById('skullMatsGrid');
+      grid.innerHTML = '';
+      const challenger = skullState.players.find(p => p.id === skullState.challengerId);
+      const isChallengerMe = challenger && (challenger.id === myProfile.id || challenger.name === myProfile.name);
+      const myUnrevealedCount = challenger ? challenger.playedStack.filter(c => !c.revealed).length : 0;
+
+      skullState.players.forEach((p, idx) => {
+        const isCurrentTurn = (idx === skullState.currentTurnIndex);
+        const isThisPlayerChallenger = (skullState.phase === 'FLIPPING' && skullState.challengerId === p.id);
+        const isMe = (p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+
+        let topUnrevealedIdx = -1;
+        for (let i = p.playedStack.length - 1; i >= 0; i--) {
+          if (!p.playedStack[i].revealed) { topUnrevealedIdx = i; break; }
+        }
+
+        const mat = document.createElement('div');
+        mat.className = `relative p-3 rounded-2xl border transition-all flex flex-col justify-between min-h-[120px] ${
+          p.isEliminated ? 'bg-stone-950/60 border-stone-800 opacity-40' : (isCurrentTurn ? 'bg-amber-950/30 border-amber-500/80 shadow-lg shadow-amber-500/10 ring-1 ring-amber-400/40' : 'bg-stone-900/60 border-stone-800/80')
+        } ${isThisPlayerChallenger ? 'ring-2 ring-red-500' : ''}`;
+
+        mat.innerHTML = `
+          <div class="flex items-center justify-between text-xs pb-1 border-b border-stone-800/60">
+            <div class="flex items-center gap-1.5"><span>${p.avatar}</span><span class="font-bold text-stone-200">${p.name}${isMe ? ' (나)' : ''}</span></div>
+            <div class="flex items-center gap-1"><span class="text-[10px] text-amber-400 font-bold">${p.score}/2점</span>${p.isEliminated ? '<span class="text-[10px] text-red-500 font-bold">탈락</span>' : ''}</div>
+          </div>
+        `;
+
+        const stackContainer = document.createElement('div');
+        stackContainer.className = 'my-auto flex items-center justify-center gap-1.5 py-2 overflow-x-auto';
+
+        if (p.playedStack.length === 0) {
+          stackContainer.innerHTML = `<span class="text-[11px] text-stone-600 italic">카드가 없습니다</span>`;
+        } else {
+          p.playedStack.forEach((card, cardIndex) => {
+            const cardEl = document.createElement('div');
+            let canFlipThis = false;
+            if (skullState.phase === 'FLIPPING' && isChallengerMe && !card.revealed && cardIndex === topUnrevealedIdx) {
+              canFlipThis = (myUnrevealedCount > 0) ? (p.id === challenger.id) : true;
+            }
+
+            let cardVisual = '';
+            if (card.revealed) {
+              cardVisual = card.type === 'SKULL' ? 'bg-red-950 border-red-500 text-red-300 shadow-md ring-2 ring-red-500' : 'bg-amber-950 border-amber-500 text-amber-300 shadow-md';
+            } else if (isMe) {
+              cardVisual = card.type === 'SKULL' ? 'bg-stone-900 border-red-900/80 text-red-400/80' : 'bg-stone-900 border-amber-900/80 text-amber-400/80';
+            } else {
+              cardVisual = 'bg-stone-900 border-stone-700 text-stone-500';
+            }
+
+            cardEl.className = `w-11 h-16 sm:w-13 sm:h-18 rounded-xl border flex flex-col items-center justify-center font-bold text-xs transition-all relative ${cardVisual} ${
+              canFlipThis ? 'cursor-pointer hover:scale-108 active:scale-95 ring-2 ring-amber-400 shadow-lg shadow-amber-500/40 animate-pulse' : ''
+            }`;
+
+            if (card.revealed) cardEl.innerHTML = `<span class="text-xl">${card.type === 'SKULL' ? '💀' : '🌹'}</span>`;
+            else if (isMe) cardEl.innerHTML = `<span class="text-base opacity-75">${card.type === 'SKULL' ? '💀' : '🌹'}</span><span class="text-[8px] text-stone-500">(내)</span>`;
+            else cardEl.innerHTML = `<span class="text-sm font-serif opacity-40">S</span>`;
+
+            if (canFlipThis) {
+              cardEl.title = '클릭하여 이 카드를 뒤집습니다!';
+              cardEl.onclick = (e) => { e.preventDefault(); handleSkullFlipClick(p.id); };
+            }
+            stackContainer.appendChild(cardEl);
+          });
+        }
+        mat.appendChild(stackContainer);
+        grid.appendChild(mat);
+      });
+    }
+
+    function renderSkullBiddingControls() {
+      const panel = document.getElementById('skullBiddingControls');
+      const highBidText = document.getElementById('skullCurrentHighBidText');
+      const inputDisplay = document.getElementById('skullBidInputDisplay');
+      const btnSubmit = document.getElementById('btnSkullBidSubmit');
+      const btnPass = document.getElementById('btnSkullBidPass');
+
+      if (skullState.phase !== 'BIDDING') {
+        panel.classList.add('hidden');
+        return;
+      }
+      panel.classList.remove('hidden');
+      const highBidder = skullState.players.find(p => p.id === skullState.highBidderId);
+      highBidText.textContent = highBidder ? `${highBidder.name} (꽃 ${skullState.currentHighBid}장)` : '없음';
+
+      const totalCards = getTotalCardsOnAllMats();
+      if (localSkullBidInputVal <= skullState.currentHighBid) {
+        localSkullBidInputVal = Math.min(skullState.currentHighBid + 1, totalCards);
+      }
+      inputDisplay.textContent = localSkullBidInputVal;
+
+      const isMy = isMySkullTurn();
+      btnSubmit.disabled = (!isMy || localSkullBidInputVal <= skullState.currentHighBid || localSkullBidInputVal > totalCards);
+      btnPass.disabled = !isMy;
+    }
+
+    function renderSkullHand() {
+      const handRack = document.getElementById('skullHandRack');
+      const btnChallenge = document.getElementById('btnSkullTriggerChallenge');
+      const isMy = isMySkullTurn();
+      const me = skullState.players.find(p => p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+
+      if (skullState.phase === 'PLACING') {
+        handRack.innerHTML = '';
+        if (me && !me.isEliminated) {
+          document.getElementById('skullHandGuide').textContent = (me.hand.length === 0) ? '⚠️ 손패 소진! 비딩(도전)을 시작해야 합니다!' : '내려놓을 카드를 1장 선택하여 클릭하세요.';
+          me.hand.forEach((cardType) => {
+            const btn = document.createElement('button');
+            btn.className = `w-12 h-14 sm:w-14 sm:h-16 rounded-xl border-2 flex flex-col items-center justify-center transition-all shadow-md active:scale-95 ${
+              isMy ? (cardType === 'SKULL' ? 'bg-red-950/80 hover:bg-red-900 border-red-500 text-red-200 cursor-pointer' : 'bg-amber-950/80 hover:bg-amber-900 border-amber-500 text-amber-200 cursor-pointer') : 'bg-stone-900 border-stone-700 opacity-60 cursor-not-allowed'
+            }`;
+            btn.innerHTML = `<span class="text-xl">${cardType === 'SKULL' ? '💀' : '🌹'}</span><span class="text-[9px] font-bold">${cardType === 'SKULL' ? '해골' : '장미'}</span>`;
+            btn.onclick = () => handleSkullCardSelect(cardType);
+            handRack.appendChild(btn);
+          });
+
+          const totalCards = getTotalCardsOnAllMats();
+          const hasOne = me.playedStack.length >= 1;
+          const mustBid = me.hand.length === 0;
+
+          if (isMy && (mustBid || (hasOne && totalCards >= 1))) {
+            btnChallenge.classList.remove('hidden');
+            btnChallenge.textContent = mustBid ? '🔥 손패 소진! 필수 비딩 시작하기' : '🔥 비딩(도전) 시작하기';
+          } else {
+            btnChallenge.classList.add('hidden');
+          }
+        }
+      } else {
+        handRack.innerHTML = `<span class="text-xs text-stone-400 italic">경매 또는 뒤집기 단계가 진행 중입니다.</span>`;
+        btnChallenge.classList.add('hidden');
+      }
+    }
+
+    function renderSkullRoster() {
+      const roster = document.getElementById('skullScoreRosterList');
+      if (!roster) return;
+      roster.innerHTML = '';
+      skullState.players.forEach(p => {
+        const isMe = (p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+        const item = document.createElement('div');
+        item.className = `p-2.5 rounded-xl border flex items-center justify-between text-xs ${p.isEliminated ? 'bg-stone-950/40 border-stone-800 text-stone-600' : 'bg-stone-950/90 border-stone-800 text-stone-200'}`;
+        let rosesHtml = '';
+        for (let i = 0; i < 2; i++) {
+          rosesHtml += `<span class="w-3.5 h-3.5 rounded-full inline-block border ${i < p.score ? 'bg-amber-400 border-amber-300 shadow-sm' : 'bg-stone-800 border-stone-700'}"></span>`;
+        }
+        item.innerHTML = `
+          <div class="flex items-center gap-2"><span>${p.avatar}</span><span class="font-bold">${p.name}${isMe ? ' (나)' : ''}</span></div>
+          <div class="flex items-center gap-3"><span class="text-[11px] font-mono text-stone-400">손패: ${p.hand.length}장</span><div class="flex items-center gap-1">${rosesHtml}</div></div>
+        `;
+        roster.appendChild(item);
+      });
+      document.getElementById('skullPlayerOnlineCount').textContent = `참여자: ${skullState.players.length}명`;
+    }
+
+    function handleSkullLobbyActionButtonClick() {
+      const me = skullState.players.find(p => p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+      if (isHost) {
+        if (skullState.players.length < 2) { showToast('최소 2인 이상 필요합니다.'); return; }
+        if (!areAllGuestsReady()) { showToast('모든 게스트가 준비를 마쳐야 합니다.'); return; }
+        startSkullGameByHost();
+      } else {
+        const nextReady = !me.isReady;
+        playSynthSound('ready');
+        if (me) me.isReady = nextReady;
+        renderSkullAll();
+        broadcastPacket({ type: 'ACTION_TOGGLE_READY', playerId: myProfile.id, playerName: myProfile.name, isReady: nextReady });
+      }
+    }
+
+    function handleSkullCardSelect(cardType) {
+      if (!isMySkullTurn() || skullState.phase !== 'PLACING') return;
+      if (isHost) executeSkullPlayCard(myProfile.id, cardType);
+      else broadcastPacket({ type: 'SKULL_ACTION_PLAY_CARD', playerId: myProfile.id, cardType: cardType });
+    }
+
+    function handleSkullTriggerChallenge() {
+      if (!isMySkullTurn() || skullState.phase !== 'PLACING') return;
+      if (isHost) executeSkullStartBidding(myProfile.id, 1);
+      else broadcastPacket({ type: 'SKULL_ACTION_START_BID', playerId: myProfile.id, bidVal: 1 });
+    }
+
+    function adjustSkullBidVal(delta) {
+      const totalCards = getTotalCardsOnAllMats();
+      const next = localSkullBidInputVal + delta;
+      if (next > skullState.currentHighBid && next <= totalCards) {
+        localSkullBidInputVal = next;
+        renderSkullBiddingControls();
+      }
+    }
+
+    function handleSkullBidRaise() {
+      if (!isMySkullTurn() || skullState.phase !== 'BIDDING') return;
+      if (isHost) executeSkullRaiseBid(myProfile.id, localSkullBidInputVal);
+      else broadcastPacket({ type: 'SKULL_ACTION_RAISE_BID', playerId: myProfile.id, bidVal: localSkullBidInputVal });
+    }
+
+    function handleSkullBidPass() {
+      if (!isMySkullTurn() || skullState.phase !== 'BIDDING') return;
+      if (isHost) executeSkullPassBid(myProfile.id);
+      else broadcastPacket({ type: 'SKULL_ACTION_PASS_BID', playerId: myProfile.id });
+    }
+
+    function handleSkullFlipClick(targetPlayerId) {
+      if (skullState.phase !== 'FLIPPING') return;
+      const challenger = skullState.players.find(p => p.id === skullState.challengerId);
+      if (!challenger || (challenger.id !== myProfile.id && challenger.name !== myProfile.name)) return;
+      if (isHost) executeSkullFlipCard(targetPlayerId);
+      else broadcastPacket({ type: 'SKULL_ACTION_FLIP_CARD', playerId: myProfile.id, targetPlayerId: targetPlayerId });
+    }
+
+    function logSkullHistory(text) {
+      const list = document.getElementById('skullLogsTabContent');
+      if (!list) return;
+      const p = document.createElement('p');
+      p.className = 'text-[10px] text-stone-400';
+      const time = new Date().toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      p.innerHTML = `<span class="text-stone-600">[${time}]</span> ${text}`;
+      list.appendChild(p);
+      list.scrollTop = list.scrollHeight;
+    }
+
+    function switchSkullFeedTab(tab) {
+      const isChat = (tab === 'chat');
+      document.getElementById('skullChatTabContent').classList.toggle('hidden', !isChat);
+      document.getElementById('skullLogsTabContent').classList.toggle('hidden', isChat);
+      document.getElementById('skullTabBtnChat').className = isChat ? 'text-xs font-bold text-red-400 pb-1 border-b-2 border-red-400' : 'text-xs font-semibold text-stone-400 pb-1 hover:text-stone-200';
+      document.getElementById('skullTabBtnLogs').className = isChat ? 'text-xs font-semibold text-stone-400 pb-1 hover:text-stone-200' : 'text-xs font-bold text-red-400 pb-1 border-b-2 border-red-400';
+    }
+
+    function renderLobbyRoster() {
+      const roster = document.getElementById('rosterList');
+      if (!roster) return;
+      roster.innerHTML = '';
+      skullState.players.forEach((p, idx) => {
+        const isSelf = p.id === myProfile.id || (p.name === myProfile.name && !p.isBot);
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between p-2 rounded-xl bg-stone-950 border border-stone-800 text-xs';
+        let statusText = '';
+        if (idx === 0) statusText = '<span class="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full font-bold">방장 👑</span>';
+        else if (p.isBot) statusText = '<span class="text-[10px] bg-amber-900/60 text-amber-300 border border-amber-600/40 px-1.5 py-0.5 rounded-full font-bold">전략 BOT</span>';
+        else statusText = p.isReady ? '<span class="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-500/40 px-1.5 py-0.5 rounded-full font-bold">준비완료 ✔</span>' : '<span class="text-[10px] bg-stone-800 text-stone-400 px-1.5 py-0.5 rounded-full">대기 중 ⏳</span>';
+
+        row.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="text-base">${p.avatar}</span><span class="font-bold text-stone-200">${p.name}</span>
+            ${isSelf ? '<span class="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full font-bold">나</span>' : ''}
+            ${statusText}
+          </div>
+          <div class="flex items-center gap-2">
+            ${(isHost && skullState.players.length > 1 && !isSelf && !skullState.isGameStarted) ? `<button onclick="removePlayerAction('${p.id}')" class="text-stone-500 hover:text-red-400 text-xs">삭제</button>` : ''}
+          </div>
+        `;
+        roster.appendChild(row);
+      });
+    }
+
+    function openLobbyModal() {
+      document.getElementById('inputMyName').value = myProfile.name;
+      document.getElementById('selectMyAvatar').value = myProfile.avatar;
+      document.getElementById('lobbyModal').classList.remove('hidden');
+    }
+    function closeLobbyModal() { document.getElementById('lobbyModal').classList.add('hidden'); }
+    function openRulesModal() { document.getElementById('rulesModal').classList.remove('hidden'); }
+    function closeRulesModal() { document.getElementById('rulesModal').classList.add('hidden'); }
+
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `px-4 py-2 rounded-2xl text-xs font-bold shadow-2xl backdrop-blur transition-all transform duration-300 ${
+        type === 'success' ? 'bg-emerald-600/95 text-stone-950 border border-emerald-400' : 'bg-stone-900/95 text-stone-200 border border-stone-700'
+      }`;
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => { toast.classList.add('opacity-0', '-translate-y-2'); setTimeout(() => toast.remove(), 300); }, 2400);
+    }
+
+    function copyInviteLink() {
+      const link = window.location.href;
+      const tempInput = document.createElement('input');
+      tempInput.value = link;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+      showToast(`초대 링크 복사 완료! (#${currentRoomCode})`, 'success');
+    }
+
+    function changeRoomCodeAction() {
+      const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      window.location.href = `skull.html?room=${newCode}&host=1`;
+    }
+
+    function updateProfileName(newName) {
+      if (!newName || !newName.trim()) return;
+      myProfile.name = newName.trim();
+      sessionStorage.setItem('blounge_tab_name', myProfile.name);
+      localStorage.setItem('blounge_global_name', myProfile.name);
+      const me = skullState.players.find(p => p.id === myProfile.id);
+      if (me) me.name = myProfile.name;
+      broadcastGameState();
+      renderSkullAll();
+    }
+
+    function updateProfileAvatar(newAvatar) {
+      myProfile.avatar = newAvatar;
+      sessionStorage.setItem('blounge_tab_avatar', myProfile.avatar);
+      localStorage.setItem('blounge_global_avatar', myProfile.avatar);
+      const me = skullState.players.find(p => p.id === myProfile.id);
+      if (me) me.avatar = myProfile.avatar;
+      broadcastGameState();
+      renderSkullAll();
+    }
+
+    function addBotPlayerAction() {
+      if (skullState.players.length >= 6) { showToast('스컬은 최대 6인까지만 가능합니다.'); return; }
+      const botNum = skullState.players.filter(p => p.isBot).length + 1;
+      skullState.players.push(createSkullPlayerObj('bot_' + Math.random().toString(36).substring(2, 6), `전략 AI 봇 ${botNum}`, '🤖', true, true));
+      broadcastGameState();
+      renderSkullAll();
+      showToast('전략 AI 봇이 대기실에 참가했습니다.', 'success');
+    }
+
+    function removePlayerAction(pid) {
+      if (skullState.players.length <= 1) return;
+      skullState.players = skullState.players.filter(p => p.id !== pid);
+      if (skullState.currentTurnIndex >= skullState.players.length) skullState.currentTurnIndex = 0;
+      broadcastGameState();
+      renderSkullAll();
+    }
+
+    function resetCurrentGameAction() {
+      skullState.isGameStarted = false;
+      skullState.phase = 'WAITING';
+      skullState.isGameOver = false;
+      skullState.winnerId = null;
+      skullState.players.forEach((p, idx) => {
+        p.hand = ['FLOWER', 'FLOWER', 'FLOWER', 'SKULL'];
+        p.playedStack = []; p.score = 0; p.isEliminated = false;
+        p.isReady = (idx === 0 || p.isBot);
+      });
+      const modal = document.getElementById('gameOverModal');
+      if (modal) modal.classList.add('hidden');
+      closeLobbyModal();
+      broadcastGameState();
+      renderSkullAll();
+      showToast('대기실로 돌아왔습니다.', 'info');
+    }
+
+    function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('skullChatInputText');
+      const text = input.value.trim();
+      if (!text) return;
+      appendChatMessage(myProfile.name, text);
+      broadcastPacket({ type: 'CHAT_MSG', senderName: myProfile.name, text: text });
+      input.value = '';
+    }
+
+    function sendQuickChat(text) {
+      appendChatMessage(myProfile.name, text);
+      broadcastPacket({ type: 'CHAT_MSG', senderName: myProfile.name, text: text });
+    }
+
+    function appendChatMessage(sender, text) {
+      const list = document.getElementById('skullChatMessageList');
+      if (!list) return;
+      const msg = document.createElement('div');
+      msg.className = 'text-[11px] leading-tight break-all';
+      msg.innerHTML = `<span class="font-bold ${sender === 'SYSTEM' ? 'text-amber-400' : 'text-red-400'}">${sender}:</span> <span class="text-stone-200">${text}</span>`;
+      list.appendChild(msg);
+      list.scrollTop = list.scrollHeight;
+    }
+
+    function fireConfetti() {
+      if (typeof confetti === 'function') confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('inputMyName').value = myProfile.name;
+      document.getElementById('selectMyAvatar').value = myProfile.avatar;
+      initNetworkSession();
+      renderSkullAll();
+    });
+  </script>
+</body>
+</html>

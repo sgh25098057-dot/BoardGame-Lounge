@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>보드게임 라운지</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Firebase SDK (v9 compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body { font-family: 'Inter', -apple-system, sans-serif; user-select: none; }
+    .font-brand { font-family: 'Cinzel', serif; }
+    .catalog-card-glow:hover { box-shadow: 0 0 25px rgba(245, 158, 11, 0.25); }
+  </style>
+</head>
+<body class="bg-stone-950 text-stone-100 min-h-screen flex flex-col justify-between">
+
+  <!-- TOP HEADER -->
+  <header class="bg-stone-900/90 border-b border-stone-800 backdrop-blur sticky top-0 z-40 px-4 sm:px-8 py-3 flex items-center justify-between">
+    <a href="index.html" class="flex items-center gap-3 active:scale-95 transition-all">
+      <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center font-brand font-black text-stone-950 text-2xl shadow-lg shadow-amber-500/20">
+        B
+      </div>
+      <div>
+        <h1 class="font-brand font-black text-lg text-amber-200 tracking-wider">BOARD LOUNGE</h1>
+        <p class="text-xs text-stone-400">지인 전용 웹 보드게임 허브 포털</p>
+      </div>
+    </a>
+    <div class="flex items-center gap-2">
+      <!-- Cloud Backend Status Pill -->
+      <button onclick="openConfigModal()" id="btnNetworkStatus" class="text-xs font-bold px-3 py-1.5 rounded-xl border flex items-center gap-1.5 transition-all bg-emerald-950/80 border-emerald-500/40 text-emerald-300 hover:border-emerald-400">
+        <span id="networkStatusDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="networkStatusText">클라우드 온라인 연동됨</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN HUB CONTENT -->
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-8 flex flex-col gap-6">
+
+    <!-- Profile & Direct Join Banner -->
+    <div class="bg-gradient-to-r from-stone-900 via-stone-900/90 to-stone-900 border border-stone-800 rounded-3xl p-6 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-5">
+      <div class="flex items-center gap-4 w-full sm:w-auto">
+        <select id="hubAvatar" onchange="updateProfileAvatar(this.value)" class="text-3xl bg-stone-800 border-2 border-amber-500/40 rounded-2xl p-2 cursor-pointer focus:outline-none">
+          <option value="🎲">🎲</option>
+          <option value="👑">👑</option>
+          <option value="💀">💀</option>
+          <option value="🐼">🐼</option>
+          <option value="🦊">🦊</option>
+          <option value="🦁">🦁</option>
+          <option value="🤖">🤖</option>
+          <option value="🐱">🐱</option>
+        </select>
+        <div>
+          <div class="flex items-center gap-2">
+            <input id="hubName" type="text" maxlength="10" placeholder="내 닉네임" onchange="updateProfileName(this.value)" class="bg-stone-950 border border-stone-700 rounded-xl px-3 py-1.5 text-sm font-bold text-stone-100 focus:outline-none focus:border-amber-400 w-36 sm:w-44">
+            <span class="text-[11px] text-emerald-400 font-bold bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-500/30">온라인</span>
+          </div>
+          <p class="text-xs text-stone-400 mt-1">게임을 생성하거나 공유받은 코드로 바로 입장하세요.</p>
+        </div>
+      </div>
+
+      <!-- Quick Room Code Join -->
+      <div class="bg-stone-950 border border-stone-800 rounded-2xl p-3 flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+        <div class="flex items-center gap-1.5">
+          <span class="text-stone-400 text-xs font-mono font-bold pl-1">#</span>
+          <input id="joinCodeInput" type="text" maxlength="8" placeholder="방 코드 6자리" class="w-full sm:w-32 bg-stone-900 border border-stone-700 rounded-xl px-2.5 py-1.5 text-xs font-mono uppercase text-amber-300 focus:outline-none focus:border-amber-400 text-center font-bold">
+        </div>
+        <select id="joinGameSelect" class="bg-stone-900 border border-stone-700 text-xs rounded-xl px-2.5 py-1.5 text-stone-300">
+          <option value="dalmuti.html">달무티</option>
+          <option value="yacht.html">야추 다이스</option>
+          <option value="skull.html">스컬</option>
+        </select>
+        <button onclick="handleDirectCodeJoin()" class="w-full sm:w-auto px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-stone-950 font-black text-xs transition-all shadow-md shadow-amber-500/20 whitespace-nowrap">
+          입장
+        </button>
+      </div>
+    </div>
+
+    <!-- GAME SELECTOR CATALOG -->
+    <div>
+      <h2 class="text-lg font-black text-amber-200 tracking-wide flex items-center gap-2 font-brand mb-4">
+        <span>🏛️</span> GAME SELECTOR
+      </h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+        <!-- GAME 1: DALMUTI -->
+        <div class="bg-gradient-to-b from-purple-950/40 via-stone-900 to-stone-950 border-2 border-purple-500/60 rounded-3xl p-6 shadow-xl flex flex-col justify-between catalog-card-glow transition-all group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <div class="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                👑
+              </div>
+              <span class="bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                3호 게임 ✔
+              </span>
+            </div>
+            <h3 class="text-base font-black text-stone-100 group-hover:text-purple-300 transition-colors">달무티</h3>
+            <p class="text-[11px] font-mono text-purple-400/80 mb-2">The Great Dalmuti (3~8인)</p>
+            <p class="text-xs text-stone-400 leading-relaxed mb-4">
+              "인생은 불공평합니다!" 더 낮은 숫자 카드를 내어 손패를 먼저 터는 자가 왕(달무티)이 되는 서열 전쟁 카드게임.
+            </p>
+          </div>
+          <div class="pt-4 border-t border-stone-800">
+            <button onclick="createGameRoom('dalmuti.html')" class="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-amber-500 hover:from-purple-500 hover:to-amber-400 text-stone-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-purple-500/20 active:scale-95">
+              달무티 방 만들기 (생성)
+            </button>
+          </div>
+        </div>
+
+        <!-- GAME 2: YACHT DICE -->
+        <div class="bg-gradient-to-b from-stone-900 to-stone-950 border-2 border-amber-500/60 rounded-3xl p-6 shadow-xl flex flex-col justify-between catalog-card-glow transition-all group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                🎲
+              </div>
+              <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                1호 게임 ✔
+              </span>
+            </div>
+            <h3 class="text-base font-black text-stone-100 group-hover:text-amber-300 transition-colors">야추 다이스</h3>
+            <p class="text-[11px] font-mono text-amber-400/80 mb-2">Yacht Dice (1~4인)</p>
+            <p class="text-xs text-stone-400 leading-relaxed mb-4">
+              5개의 주사위를 굴려 최고의 조합(풀하우스, 스트레이트, 야추)을 완성하는 전통 주사위 보드게임.
+            </p>
+          </div>
+          <div class="pt-4 border-t border-stone-800">
+            <button onclick="createGameRoom('yacht.html')" class="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-stone-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-amber-500/20 active:scale-95">
+              야추 방 만들기 (생성)
+            </button>
+          </div>
+        </div>
+
+        <!-- GAME 3: SKULL -->
+        <div class="bg-gradient-to-b from-stone-900 to-stone-950 border-2 border-red-500/60 rounded-3xl p-6 shadow-xl flex flex-col justify-between catalog-card-glow transition-all group">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <div class="w-12 h-12 rounded-2xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                💀
+              </div>
+              <span class="bg-red-500/20 text-red-300 border border-red-500/40 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                2호 게임 🔥
+              </span>
+            </div>
+            <h3 class="text-base font-black text-stone-100 group-hover:text-red-300 transition-colors">스컬 (Skull)</h3>
+            <p class="text-[11px] font-mono text-red-400/80 mb-2">Skull & Roses (2~6인)</p>
+            <p class="text-xs text-stone-400 leading-relaxed mb-4">
+              꽃과 해골 중 무엇이 뒤집힐 것인가? 치열한 배짱과 심리전으로 2승을 먼저 쟁취하는 원초적 블러핑 게임.
+            </p>
+          </div>
+          <div class="pt-4 border-t border-stone-800">
+            <button onclick="createGameRoom('skull.html')" class="w-full py-3 rounded-2xl bg-gradient-to-r from-red-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-stone-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-red-500/20 active:scale-95">
+              스컬 방 만들기 (생성)
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="py-4 text-center text-xs text-stone-600 border-t border-stone-900">
+    보드게임 라운지 허브 · 클라우드 실시간 멀티플레이 연동 버전
+  </footer>
+
+  <!-- MODAL: CLOUD SYNC CONFIGURATION -->
+  <div id="configModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-stone-900 border border-stone-700 w-full max-w-lg rounded-3xl p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-2 border-b border-stone-800">
+        <h3 class="font-bold text-sm text-amber-300 flex items-center gap-2">
+          <span>🌐</span> 온라인 기기간 멀티 동기화 설정
+        </h3>
+        <button onclick="closeConfigModal()" class="text-stone-400 hover:text-stone-100 font-bold">✕</button>
+      </div>
+
+      <div class="text-xs text-stone-300 space-y-2 leading-relaxed">
+        <p class="text-emerald-400 font-bold">
+          ✔ 본 프로젝트의 Firebase 클라우드 백엔드가 기본 내장되어 있습니다. 별도 입력 없이 전국 어디서든 실시간 동기화가 동작합니다.
+        </p>
+        <p class="text-stone-400 text-[11px]">
+          다른 자체 Firebase 프로젝트로 변경을 원하실 때만 아래 설정을 수정하세요.
+        </p>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-stone-300 mb-1">Firebase 설정 JSON</label>
+        <textarea id="firebaseConfigInput" rows="7" class="w-full bg-stone-950 border border-stone-700 rounded-xl p-3 text-xs font-mono text-amber-300 focus:outline-none focus:border-amber-400"></textarea>
+      </div>
+
+      <div class="flex gap-2 pt-2 border-t border-stone-800">
+        <button onclick="saveFirebaseConfig()" class="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition-all shadow-md">
+          설정 저장하기
+        </button>
+        <button onclick="resetToBuiltinFirebaseConfig()" class="px-4 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-300 text-xs">
+          기본값 복원
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastBox" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col gap-2 items-center"></div>
+
+  <script>
+    // 내장 기본 Firebase 설정 (사용자 프로젝트)
+    const BUILTIN_FIREBASE_CONFIG = {
+      apiKey: "AIzaSyBZMFQKNjnzhP16zmzFtOCtAeNhsmFemSM",
+      authDomain: "boardgame-eaaf1.firebaseapp.com",
+      projectId: "boardgame-eaaf1",
+      storageBucket: "boardgame-eaaf1.firebasestorage.app",
+      messagingSenderId: "367291000875",
+      appId: "1:367291000875:web:e93fce0941ec885548e26e",
+      measurementId: "G-07BHDHWHC7"
+    };
+
+    // 로컬 스토리지에 기본 설정이 없으면 자동으로 내장 설정을 저장하여 모든 게임과 공유
+    if (!localStorage.getItem('blounge_firebase_config')) {
+      localStorage.setItem('blounge_firebase_config', JSON.stringify(BUILTIN_FIREBASE_CONFIG));
+    }
+
+    // Profile Management
+    const savedName = localStorage.getItem('blounge_global_name') || ('승부사_' + Math.random().toString(36).substring(2, 6));
+    const savedAvatar = localStorage.getItem('blounge_global_avatar') || '🎲';
+
+    document.getElementById('hubName').value = savedName;
+    document.getElementById('hubAvatar').value = savedAvatar;
+
+    function updateProfileName(val) {
+      if (!val.trim()) return;
+      localStorage.setItem('blounge_global_name', val.trim());
+      sessionStorage.setItem('blounge_tab_name', val.trim());
+    }
+
+    function updateProfileAvatar(val) {
+      localStorage.setItem('blounge_global_avatar', val);
+      sessionStorage.setItem('blounge_tab_avatar', val);
+    }
+
+    function generateRoomCode() {
+      return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    function createGameRoom(targetHtmlFile) {
+      const room = generateRoomCode();
+      window.location.href = `${targetHtmlFile}?room=${room}&host=1`;
+    }
+
+    function handleDirectCodeJoin() {
+      const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+      const targetHtmlFile = document.getElementById('joinGameSelect').value;
+      if (code.length < 4) {
+        showToast('유효한 6자리 방 코드를 입력하세요.');
+        return;
+      }
+      window.location.href = `${targetHtmlFile}?room=${code}`;
+    }
+
+    // Firebase configuration modal & local persistence
+    function openConfigModal() {
+      const existing = localStorage.getItem('blounge_firebase_config') || JSON.stringify(BUILTIN_FIREBASE_CONFIG, null, 2);
+      try {
+        document.getElementById('firebaseConfigInput').value = JSON.stringify(JSON.parse(existing), null, 2);
+      } catch (e) {
+        document.getElementById('firebaseConfigInput').value = existing;
+      }
+      document.getElementById('configModal').classList.remove('hidden');
+    }
+
+    function closeConfigModal() {
+      document.getElementById('configModal').classList.add('hidden');
+    }
+
+    function saveFirebaseConfig() {
+      const val = document.getElementById('firebaseConfigInput').value.trim();
+      if (!val) {
+        resetToBuiltinFirebaseConfig();
+        return;
+      }
+      try {
+        const parsed = JSON.parse(val);
+        localStorage.setItem('blounge_firebase_config', JSON.stringify(parsed));
+        showToast('온라인 클라우드 설정이 저장되었습니다!');
+        closeConfigModal();
+        updateNetworkBadge();
+      } catch (e) {
+        showToast('올바른 JSON 형식이 아닙니다. { ... } 형태로 입력하세요.');
+      }
+    }
+
+    function resetToBuiltinFirebaseConfig() {
+      localStorage.setItem('blounge_firebase_config', JSON.stringify(BUILTIN_FIREBASE_CONFIG));
+      document.getElementById('firebaseConfigInput').value = JSON.stringify(BUILTIN_FIREBASE_CONFIG, null, 2);
+      showToast('기본 Firebase 클라우드 설정으로 복원되었습니다.');
+      closeConfigModal();
+      updateNetworkBadge();
+    }
+
+    function updateNetworkBadge() {
+      const config = localStorage.getItem('blounge_firebase_config');
+      const dot = document.getElementById('networkStatusDot');
+      const text = document.getElementById('networkStatusText');
+      if (config) {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        text.textContent = '클라우드 연동됨';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-stone-500';
+        text.textContent = '로컬 모드';
+      }
+    }
+
+    function showToast(msg) {
+      const box = document.getElementById('toastBox');
+      const t = document.createElement('div');
+      t.className = 'px-4 py-2 rounded-2xl bg-stone-900 border border-emerald-500/60 text-stone-100 text-xs font-bold shadow-2xl';
+      t.textContent = msg;
+      box.appendChild(t);
+      setTimeout(() => t.remove(), 2500);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      updateNetworkBadge();
+    });
+  </script>
+</body>
+</html>
