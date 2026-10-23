@@ -87,6 +87,11 @@
 
     <!-- Header Actions -->
     <div class="flex items-center gap-1.5 sm:gap-2">
+      <!-- 수동 새로고침/동기화 버튼 (혹시 모를 패킷 누락 대비) -->
+      <button onclick="requestManualSync()" class="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-amber-300 transition-all active:scale-95" title="방 상태 다시 불러오기 (새로고침)">
+        <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      </button>
+
       <button onclick="requestExitToLobby()" class="px-2.5 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95">
         <svg class="w-4 h-4 text-amber-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
         <span class="hidden sm:inline">로비 홈</span>
@@ -539,6 +544,7 @@
     let hasLeftRoom = false;
     let presenceTimer = null;
     let isDocumentVisible = true;
+    let lastStateTimestamp = 0;
 
     // Optimistic lock protection flag
     let localPendingLocks = {};
@@ -596,11 +602,13 @@
       }
     }
 
-    // Page Visibility API - Sleep heartbeat when hidden to save 85% writes
+    // Page Visibility API - Sleep heartbeat when hidden to save writes
     document.addEventListener('visibilitychange', () => {
       isDocumentVisible = !document.hidden;
       if (isDocumentVisible) {
         reportGamePresence();
+        // 화면으로 복귀했을 때 즉시 방 상태 요청
+        if (!isHost) requestManualSync();
       }
     });
 
@@ -664,9 +672,13 @@
       broadcastPacket({ type: 'PLAYER_JOIN', profile: myProfile });
 
       if (!isHost) {
-        broadcastPacket({ type: 'REQUEST_SYNC' });
-        setTimeout(() => { if (!isHost) broadcastPacket({ type: 'REQUEST_SYNC' }); }, 300);
+        requestManualSync();
+        setTimeout(requestManualSync, 400);
       }
+    }
+
+    function requestManualSync() {
+      broadcastPacket({ type: 'REQUEST_SYNC' });
     }
 
     function broadcastPacket(data) {
@@ -695,11 +707,21 @@
 
     function broadcastGameState() {
       if (!isHost) return;
-      broadcastPacket({ type: 'SYNC_STATE', state: gameState });
+      broadcastPacket({ type: 'SYNC_STATE', state: gameState, stateTimestamp: Date.now() });
     }
 
     function handleIncomingPacket(data) {
       if (!data || data.senderId === myProfile.id) return;
+
+      // SYNC_STATE 패킷은 actionId 중복 체크로 버려지면 턴이 멈추므로 타임스탬프 기준으로 강제 수신 처리
+      if (data.type === 'SYNC_STATE') {
+        const incomingTimestamp = data.stateTimestamp || data.timestamp || 0;
+        if (incomingTimestamp >= lastStateTimestamp) {
+          lastStateTimestamp = incomingTimestamp;
+          processSyncStatePacket(data.state);
+        }
+        return;
+      }
 
       if (data.actionId) {
         if (processedActionIds.has(data.actionId)) return;
@@ -712,7 +734,7 @@
       switch (data.type) {
         case 'PLAYER_JOIN': {
           if (isHost) {
-            let existing = gameState.players.find(p => p.id === data.profile.id);
+            let existing = gameState.players.find(p => p.id === data.profile.id || p.name === data.profile.name);
             if (!existing) {
               if (gameState.players.length >= 4) {
                 broadcastPacket({
@@ -732,6 +754,7 @@
               }
               gameState.players.push({ ...data.profile, isReady: false, scores: {} });
             } else {
+              existing.id = data.profile.id; // 세션 ID 최신화
               existing.name = data.profile.name;
               existing.avatar = data.profile.avatar;
             }
@@ -762,41 +785,9 @@
           break;
         }
 
-        case 'SYNC_STATE': {
-          const wasStarted = gameState.isGameStarted;
-          const previousRolls = gameState.rollsLeft;
-          const incomingState = data.state;
-          const isRollUpdate = incomingState.hasRolledOnce && (incomingState.rollsLeft < previousRolls || (previousRolls === 3 && incomingState.rollsLeft === 2));
-
-          if (!wasStarted && incomingState.isGameStarted) {
-            playSynthSound('start');
-            fireConfetti();
-            showToast('🎮 방장이 게임을 시작했습니다!', 'success');
-          }
-
-          // Preserve local optimistic lock if it's currently my turn
-          if (isMyTurn() && !incomingState.isRolling) {
-            incomingState.dice.forEach((die, idx) => {
-              if (localPendingLocks[idx] !== undefined) {
-                die.locked = localPendingLocks[idx];
-              }
-            });
-          } else {
-            localPendingLocks = {};
-          }
-
-          if (isRollUpdate && !isHost) {
-            triggerRollingAnimationOnly();
-            setTimeout(() => { applyIncomingState(incomingState); }, 420);
-          } else {
-            applyIncomingState(incomingState);
-          }
-          break;
-        }
-
         case 'ACTION_TOGGLE_READY': {
           if (isHost) {
-            const guest = gameState.players.find(p => p.id === data.playerId);
+            const guest = gameState.players.find(p => p.id === data.playerId || p.name === data.playerName);
             if (guest) {
               guest.isReady = data.isReady;
               playSynthSound('ready');
@@ -825,18 +816,24 @@
         case 'ACTION_ROLL': {
           if (isHost && gameState.isGameStarted) {
             const active = getCurrentActivePlayer();
-            if (active && active.id === data.playerId) executeRollAction();
+            if (active && (active.id === data.playerId || active.name === data.playerName)) {
+              executeRollAction();
+            }
           }
           break;
         }
 
         case 'ACTION_TOGGLE_LOCK': {
-          if (isHost && gameState.isGameStarted) toggleDieLockAction(data.dieIndex, data.locked);
+          if (isHost && gameState.isGameStarted) {
+            toggleDieLockAction(data.dieIndex, data.locked);
+          }
           break;
         }
 
         case 'ACTION_SELECT_SCORE': {
-          if (isHost && gameState.isGameStarted) recordCategoryScore(data.categoryKey, data.playerId, data.playerName);
+          if (isHost && gameState.isGameStarted) {
+            recordCategoryScore(data.categoryKey, data.playerId, data.playerName);
+          }
           break;
         }
 
@@ -844,6 +841,42 @@
           appendChatMessage(data.senderName, data.text);
           break;
         }
+      }
+    }
+
+    // SYNC_STATE 패킷을 안전하고 완벽하게 파싱하는 핵심 함수
+    function processSyncStatePacket(incomingState) {
+      const wasStarted = gameState.isGameStarted;
+      const previousRolls = gameState.rollsLeft;
+      const prevActiveIdx = gameState.activePlayerIndex;
+      const isRollUpdate = incomingState.hasRolledOnce && (incomingState.rollsLeft < previousRolls || (previousRolls === 3 && incomingState.rollsLeft === 2));
+
+      if (!wasStarted && incomingState.isGameStarted) {
+        playSynthSound('start');
+        fireConfetti();
+        showToast('🎮 방장이 게임을 시작했습니다!', 'success');
+      }
+
+      // 턴이 바뀌었을 경우 클라이언트의 모든 락 및 대기 플래그 완전 초기화
+      if (prevActiveIdx !== incomingState.activePlayerIndex) {
+        localPendingLocks = {};
+        incomingState.isRolling = false;
+      } else {
+        // 동일 턴일 때만 로컬 펜딩 락 보존
+        if (isMyTurn() && !incomingState.isRolling) {
+          incomingState.dice.forEach((die, idx) => {
+            if (localPendingLocks[idx] !== undefined) {
+              die.locked = localPendingLocks[idx];
+            }
+          });
+        }
+      }
+
+      if (isRollUpdate && !isHost) {
+        triggerRollingAnimationOnly();
+        setTimeout(() => { applyIncomingState(incomingState); }, 420);
+      } else {
+        applyIncomingState(incomingState);
       }
     }
 
@@ -856,7 +889,7 @@
       showToast(`🚪 ${leavingName}님이 방을 나갔습니다.`, 'info');
       playSynthSound('leave');
 
-      const leavingIndex = gameState.players.findIndex(p => p.id === leavingId);
+      const leavingIndex = gameState.players.findIndex(p => p.id === leavingId || p.name === leavingName);
       if (leavingIndex === -1) return;
 
       const wasLeavingHost = (leavingIndex === 0) || packet.wasHost;
@@ -882,7 +915,7 @@
           const newHostPlayer = gameState.players[0];
           newHostPlayer.isReady = true;
 
-          if (newHostPlayer.id === myProfile.id) {
+          if (newHostPlayer.id === myProfile.id || newHostPlayer.name === myProfile.name) {
             isHost = true;
             showToast('👑 이전 방장이 퇴장하여 귀하가 새로운 방장이 되었습니다!', 'success');
             broadcastGameState();
@@ -968,20 +1001,30 @@
 
     function applyIncomingState(newState) {
       gameState = newState;
-      if (isMyTurn()) gameState.isRolling = false;
+      // 상태 적용 시 롤링 락 해제
+      gameState.isRolling = false;
       renderAll();
       checkGameOverSync();
     }
 
+    // 턴 일치 여부 정밀 판정 (ID 및 닉네임 다중 매칭 안전망)
     function isMyTurn() {
       if (!gameState.isGameStarted) return false;
       const active = gameState.players[gameState.activePlayerIndex];
       if (!active) return false;
-      return active.id === myProfile.id || (active.name === myProfile.name && !active.isBot);
+      return (
+        active.id === myProfile.id ||
+        active.id === sessionUid ||
+        (active.name && active.name.trim() === myProfile.name.trim() && !active.isBot)
+      );
     }
 
     function getMyPlayerObject() {
-      return gameState.players.find(p => p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+      return gameState.players.find(p => 
+        p.id === myProfile.id || 
+        p.id === sessionUid || 
+        (p.name && p.name.trim() === myProfile.name.trim() && !p.isBot)
+      );
     }
 
     function areAllGuestsReady() {
@@ -1063,7 +1106,7 @@
         return;
       }
 
-      localPendingLocks = {}; // Reset local overrides on new roll
+      localPendingLocks = {}; // 새 굴림 시 로컬 오버라이드 리셋
 
       if (isHost) {
         executeRollAction();
@@ -1130,7 +1173,7 @@
       }, 430);
     }
 
-    // Optimistic Lock Handling for 100% responsiveness on guest & host
+    // Optimistic Lock Handling
     function handleToggleDie(idx) {
       if (!gameState.isGameStarted || !isMyTurn()) {
         const active = gameState.players[gameState.activePlayerIndex];
@@ -1150,7 +1193,7 @@
       localPendingLocks[idx] = newLockedState;
       renderDiceRack();
 
-      // 2. Transmit to peer/host
+      // 2. Transmit
       if (isHost) {
         broadcastPacket({ type: 'DIE_LOCKED', dieIndex: idx, locked: newLockedState });
         broadcastGameState();
@@ -1235,8 +1278,11 @@
       if (isHost) {
         recordCategoryScore(catKey, myProfile.id, myProfile.name);
       } else {
+        // 일시 락 걸어두되 1.2초 내 응답 없으면 자동 해제
         gameState.isRolling = true;
         renderTurnControls();
+        setTimeout(() => { if (gameState.isRolling) { gameState.isRolling = false; renderTurnControls(); } }, 1200);
+
         broadcastPacket({
           type: 'ACTION_SELECT_SCORE',
           playerId: myProfile.id,
@@ -1502,8 +1548,8 @@
         badgeName.textContent = '게임 대기 중';
       } else {
         badgeTurnTitle.textContent = 'CURRENT TURN';
-        badgeAvatar.textContent = active.avatar;
-        badgeName.textContent = active.name + (isMyTurn() ? ' (나)' : '');
+        badgeAvatar.textContent = active ? active.avatar : '🎲';
+        badgeName.textContent = (active ? active.name : '') + (isMyTurn() ? ' (나)' : '');
       }
 
       document.getElementById('roundCounter').textContent = `${Math.min(gameState.round, 12)} / 12`;
@@ -1544,7 +1590,7 @@
 
       gameState.players.forEach((p, idx) => {
         const isHostPlayer = (idx === 0);
-        const isMe = (p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+        const isMe = (p.id === myProfile.id || p.id === sessionUid || p.name === myProfile.name);
         const chip = document.createElement('div');
         
         let statusBadge = '';
@@ -1693,7 +1739,7 @@
 
       if (!isMy) {
         btnRoll.disabled = true;
-        guideText.textContent = `${active.name}님이 턴을 진행 중입니다...`;
+        guideText.textContent = `${active ? active.name : '상대방'}님이 턴을 진행 중입니다...`;
         subInst.textContent = '상대방의 선택을 기다려주세요.';
         if (subDot) subDot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
       } else {
@@ -1716,7 +1762,7 @@
       gameState.players.forEach((player, pIdx) => {
         const th = document.createElement('th');
         const isCurrent = gameState.isGameStarted && (pIdx === gameState.activePlayerIndex);
-        const isSelf = player.id === myProfile.id || (player.name === myProfile.name && !player.isBot);
+        const isSelf = (player.id === myProfile.id || player.id === sessionUid || player.name === myProfile.name);
         th.className = `py-1.5 px-2 text-center transition-colors ${isCurrent ? 'bg-amber-500/15 text-amber-300 font-extrabold rounded-t-lg' : 'text-stone-400 font-semibold'}`;
         th.innerHTML = `
           <div class="flex flex-col items-center">
@@ -1807,7 +1853,7 @@
       roster.innerHTML = '';
 
       gameState.players.forEach((p, idx) => {
-        const isSelf = p.id === myProfile.id || (p.name === myProfile.name && !p.isBot);
+        const isSelf = (p.id === myProfile.id || p.id === sessionUid || p.name === myProfile.name);
         const row = document.createElement('div');
         row.className = 'flex items-center justify-between p-2 rounded-xl bg-stone-950 border border-stone-800 text-xs';
         let statusText = '';
@@ -1889,7 +1935,7 @@
       myProfile.name = newName.trim();
       sessionStorage.setItem('blounge_tab_name', myProfile.name);
       localStorage.setItem('blounge_global_name', myProfile.name);
-      const me = gameState.players.find(p => p.id === myProfile.id);
+      const me = gameState.players.find(p => p.id === myProfile.id || p.name === myProfile.name);
       if (me) me.name = myProfile.name;
       reportGamePresence();
       broadcastGameState();
@@ -1900,7 +1946,7 @@
       myProfile.avatar = newAvatar;
       sessionStorage.setItem('blounge_tab_avatar', myProfile.avatar);
       localStorage.setItem('blounge_global_avatar', myProfile.avatar);
-      const me = gameState.players.find(p => p.id === myProfile.id);
+      const me = gameState.players.find(p => p.id === myProfile.id || p.name === myProfile.name);
       if (me) me.avatar = myProfile.avatar;
       reportGamePresence();
       broadcastGameState();

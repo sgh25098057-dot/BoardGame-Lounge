@@ -10,12 +10,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
-  <!-- Firebase SDK (v9 compat) for Cross-Device Realtime Cloud Multiplayer -->
+  <!-- Firebase SDK (v9 compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <style>
-    body { font-family: 'Inter', -apple-system, sans-serif; user-select: none; }
+    body { font-family: 'Inter', -apple-system, sans-serif; user-select: none; -webkit-user-select: none; }
     .font-brand { font-family: 'Cinzel', serif; }
     .skull-table {
       background-color: #17110c;
@@ -39,9 +39,9 @@
   <!-- TOP APP HEADER -->
   <header class="bg-stone-900/90 border-b border-stone-800/80 backdrop-blur sticky top-0 z-40 px-3 sm:px-6 py-2.5 flex items-center justify-between shadow-md">
     <div class="flex items-center gap-3">
-      <a href="index.html" onclick="handleLeaveRoom(event)" class="w-9 h-9 rounded-xl bg-gradient-to-tr from-red-600 to-amber-500 flex items-center justify-center font-brand font-black text-stone-950 text-xl shadow-lg shadow-red-500/20 active:scale-95 transition-all" title="로비로 돌아가기">
+      <button onclick="requestExitToLobby()" class="w-9 h-9 rounded-xl bg-gradient-to-tr from-red-600 to-amber-500 flex items-center justify-center font-brand font-black text-stone-950 text-xl shadow-lg shadow-red-500/20 active:scale-95 transition-all" title="로비로 돌아가기">
         💀
-      </a>
+      </button>
       <div>
         <div class="flex items-center gap-2">
           <h1 class="font-brand font-extrabold tracking-wider text-base sm:text-lg text-amber-200">
@@ -66,10 +66,15 @@
 
     <!-- Header Actions -->
     <div class="flex items-center gap-1.5 sm:gap-2">
-      <a href="index.html" onclick="handleLeaveRoom(event)" class="px-2.5 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95">
+      <!-- 수동 새로고침 / 재동기화 버튼 -->
+      <button onclick="requestManualSync()" class="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-amber-300 transition-all active:scale-95" title="방 상태 다시 불러오기 (새로고침)">
+        <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      </button>
+
+      <button onclick="requestExitToLobby()" class="px-2.5 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95">
         <svg class="w-4 h-4 text-amber-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
         <span class="hidden sm:inline">로비 홈</span>
-      </a>
+      </button>
 
       <button onclick="toggleAudioMute()" id="btnMute" class="p-2 rounded-xl bg-stone-800/90 hover:bg-stone-700 text-stone-300 transition-colors" title="효과음 켜기/끄기">
         <svg id="svgSoundOn" class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
@@ -218,7 +223,7 @@
           <form onsubmit="handleChatSubmit(event)" class="flex items-center gap-1.5 pt-1 border-t border-stone-800/80" autocomplete="off">
             <input 
               id="skullChatInputText" 
-              type="text" 
+              type="search" 
               maxlength="60" 
               placeholder="메시지를 입력하세요..." 
               class="flex-1 bg-stone-800/90 border border-stone-700 rounded-xl px-2.5 py-1 text-xs text-stone-100 focus:outline-none focus:border-red-400"
@@ -226,7 +231,7 @@
               autocorrect="off"
               autocapitalize="off"
               spellcheck="false"
-              name="blounge_skull_prevent_history"
+              name="blounge_skull_prevent_history_rand"
             >
             <button type="submit" class="px-3 py-1 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition-colors">전송</button>
           </form>
@@ -238,6 +243,27 @@
       </div>
     </section>
   </main>
+
+  <!-- MODAL: CONFIRM LEAVE GAME -->
+  <div id="confirmExitModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-stone-900 border-2 border-red-500/60 w-full max-w-sm rounded-3xl p-5 shadow-2xl flex flex-col items-center text-center gap-3">
+      <div class="w-12 h-12 rounded-2xl bg-red-500/20 text-red-300 flex items-center justify-center text-2xl">
+        ⚠️
+      </div>
+      <div>
+        <h3 class="font-bold text-stone-100 text-sm">진행 중인 게임을 포기하시겠습니까?</h3>
+        <p class="text-xs text-stone-400 mt-1">지금 방을 나가면 현재 게임이 기권 처리되며 로비로 이동합니다.</p>
+      </div>
+      <div class="flex gap-2 w-full pt-2">
+        <button onclick="closeConfirmExitModal()" class="flex-1 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 font-bold text-xs">
+          계속하기 (취소)
+        </button>
+        <button onclick="executeExitToLobby()" class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs shadow-lg active:scale-95">
+          포기하고 나가기
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL: ROOM LOBBY / PARTICIPANTS -->
   <div id="lobbyModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3">
@@ -336,9 +362,9 @@
         <button onclick="resetCurrentGameAction()" class="flex-1 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs tracking-wider uppercase transition-all shadow-lg active:scale-95">
           새 게임 대기실
         </button>
-        <a href="index.html" onclick="handleLeaveRoom(event)" class="px-4 py-3 rounded-2xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold text-xs transition-all flex items-center justify-center active:scale-95">
+        <button onclick="executeExitToLobby()" class="px-4 py-3 rounded-2xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold text-xs transition-all flex items-center justify-center active:scale-95">
           로비 홈
-        </a>
+        </button>
       </div>
     </div>
   </div>
@@ -464,6 +490,8 @@
     let processedActionIds = new Set();
     let hasLeftRoom = false;
     let presenceTimer = null;
+    let isDocumentVisible = true;
+    let lastStateTimestamp = 0;
 
     // ==========================================
     // FIREBASE CLOUD REALTIME CONFIG & SYNC
@@ -507,14 +535,25 @@
           console.warn('Firestore cloud sync notice:', err);
         });
 
-        // Start presence reporting to Lobby
+        // Smart Heartbeat: 15s interval + sleeps when tab is inactive
         reportGamePresence();
-        presenceTimer = setInterval(reportGamePresence, 12000);
+        presenceTimer = setInterval(() => {
+          if (isDocumentVisible) reportGamePresence();
+        }, 15000);
 
       } catch (err) {
         console.warn('Firebase init fallback:', err);
       }
     }
+
+    // Page Visibility API - Sleep heartbeat when hidden to save writes
+    document.addEventListener('visibilitychange', () => {
+      isDocumentVisible = !document.hidden;
+      if (isDocumentVisible) {
+        reportGamePresence();
+        if (!isHost) requestManualSync();
+      }
+    });
 
     function reportGamePresence() {
       if (!firestoreDb || hasLeftRoom) return;
@@ -582,9 +621,13 @@
       broadcastPacket({ type: 'PLAYER_JOIN', profile: myProfile });
 
       if (!isHost) {
-        broadcastPacket({ type: 'REQUEST_SYNC' });
-        setTimeout(() => { if (!isHost) broadcastPacket({ type: 'REQUEST_SYNC' }); }, 350);
+        requestManualSync();
+        setTimeout(requestManualSync, 400);
       }
+    }
+
+    function requestManualSync() {
+      broadcastPacket({ type: 'REQUEST_SYNC' });
     }
 
     function broadcastPacket(data) {
@@ -613,11 +656,22 @@
 
     function broadcastGameState() {
       if (!isHost) return;
-      broadcastPacket({ type: 'SYNC_SKULL_STATE', state: skullState });
+      broadcastPacket({ type: 'SYNC_SKULL_STATE', state: skullState, stateTimestamp: Date.now() });
     }
 
     function handleIncomingPacket(data) {
       if (!data || data.senderId === myProfile.id) return;
+
+      // SYNC_SKULL_STATE 패킷은 타임스탬프 기반으로 강제 수신 처리 (actionId 중복 필터로 버려짐 방지)
+      if (data.type === 'SYNC_SKULL_STATE') {
+        const incomingTimestamp = data.stateTimestamp || data.timestamp || 0;
+        if (incomingTimestamp >= lastStateTimestamp) {
+          lastStateTimestamp = incomingTimestamp;
+          processSyncSkullStatePacket(data.state);
+        }
+        return;
+      }
+
       if (data.actionId) {
         if (processedActionIds.has(data.actionId)) return;
         processedActionIds.add(data.actionId);
@@ -627,7 +681,7 @@
       switch (data.type) {
         case 'PLAYER_JOIN': {
           if (isHost) {
-            let existing = skullState.players.find(p => p.id === data.profile.id);
+            let existing = skullState.players.find(p => p.id === data.profile.id || p.name === data.profile.name);
             if (!existing) {
               if (skullState.players.length >= 6) {
                 broadcastPacket({
@@ -647,6 +701,7 @@
               }
               skullState.players.push(createSkullPlayerObj(data.profile.id, data.profile.name, data.profile.avatar, false, false));
             } else {
+              existing.id = data.profile.id;
               existing.name = data.profile.name;
               existing.avatar = data.profile.avatar;
             }
@@ -658,7 +713,7 @@
         }
 
         case 'REJECT_ENTRY': {
-          if (data.targetPlayerId === myProfile.id) {
+          if (data.targetPlayerId === myProfile.id || data.targetPlayerId === sessionUid) {
             showToast(data.reason || '방 입장이 거부되었습니다.');
             setTimeout(() => {
               window.location.href = 'index.html';
@@ -677,19 +732,9 @@
           break;
         }
 
-        case 'SYNC_SKULL_STATE': {
-          skullState = data.state;
-          renderSkullAll();
-          if (skullState.isGameOver && skullState.winnerId) {
-            const winner = skullState.players.find(p => p.id === skullState.winnerId);
-            if (winner) showSkullGameOverModal(winner);
-          }
-          break;
-        }
-
         case 'ACTION_TOGGLE_READY': {
           if (isHost) {
-            const guest = skullState.players.find(p => p.id === data.playerId);
+            const guest = skullState.players.find(p => p.id === data.playerId || p.name === data.playerName);
             if (guest) {
               guest.isReady = data.isReady;
               playSynthSound('ready');
@@ -702,19 +747,19 @@
         }
 
         case 'SKULL_ACTION_PLAY_CARD': {
-          if (isHost && skullState.isGameStarted) executeSkullPlayCard(data.playerId, data.cardType);
+          if (isHost && skullState.isGameStarted) executeSkullPlayCard(data.playerId, data.playerName, data.cardType);
           break;
         }
         case 'SKULL_ACTION_START_BID': {
-          if (isHost && skullState.isGameStarted) executeSkullStartBidding(data.playerId, data.bidVal);
+          if (isHost && skullState.isGameStarted) executeSkullStartBidding(data.playerId, data.playerName, data.bidVal);
           break;
         }
         case 'SKULL_ACTION_RAISE_BID': {
-          if (isHost && skullState.isGameStarted) executeSkullRaiseBid(data.playerId, data.bidVal);
+          if (isHost && skullState.isGameStarted) executeSkullRaiseBid(data.playerId, data.playerName, data.bidVal);
           break;
         }
         case 'SKULL_ACTION_PASS_BID': {
-          if (isHost && skullState.isGameStarted) executeSkullPassBid(data.playerId);
+          if (isHost && skullState.isGameStarted) executeSkullPassBid(data.playerId, data.playerName);
           break;
         }
         case 'SKULL_ACTION_FLIP_CARD': {
@@ -728,6 +773,25 @@
       }
     }
 
+    // SYNC_SKULL_STATE 패킷을 안전하게 처리하는 핵심 함수
+    function processSyncSkullStatePacket(incomingState) {
+      const wasStarted = skullState.isGameStarted;
+      skullState = incomingState;
+
+      if (!wasStarted && skullState.isGameStarted) {
+        playSynthSound('start');
+        fireConfetti();
+        showToast('💀 방장이 스컬 게임을 시작했습니다!', 'success');
+      }
+
+      renderSkullAll();
+
+      if (skullState.isGameOver && skullState.winnerId) {
+        const winner = skullState.players.find(p => p.id === skullState.winnerId);
+        if (winner) showSkullGameOverModal(winner);
+      }
+    }
+
     function handleRemotePlayerLeave(packet) {
       const leavingId = packet.playerId;
       const leavingName = packet.playerName || '플레이어';
@@ -737,7 +801,7 @@
       showToast(`🚪 ${leavingName}님이 방을 나갔습니다.`, 'info');
       playSynthSound('leave');
 
-      const leavingIndex = skullState.players.findIndex(p => p.id === leavingId);
+      const leavingIndex = skullState.players.findIndex(p => p.id === leavingId || p.name === leavingName);
       if (leavingIndex === -1) return;
 
       const wasLeavingHost = (leavingIndex === 0) || packet.wasHost;
@@ -763,7 +827,7 @@
           const newHostPlayer = skullState.players[0];
           newHostPlayer.isReady = true;
 
-          if (newHostPlayer.id === myProfile.id) {
+          if (newHostPlayer.id === myProfile.id || newHostPlayer.name === myProfile.name) {
             isHost = true;
             showToast('👑 이전 방장이 퇴장하여 귀하가 새로운 방장이 되었습니다!', 'success');
             broadcastGameState();
@@ -781,8 +845,21 @@
       renderSkullAll();
     }
 
-    function handleLeaveRoom(e) {
-      if (e) e.preventDefault();
+    // Modal Confirmation for Leaving Active Game
+    function requestExitToLobby() {
+      if (skullState.isGameStarted && !skullState.isGameOver) {
+        document.getElementById('confirmExitModal').classList.remove('hidden');
+      } else {
+        executeExitToLobby();
+      }
+    }
+
+    function closeConfirmExitModal() {
+      document.getElementById('confirmExitModal').classList.add('hidden');
+    }
+
+    function executeExitToLobby() {
+      closeConfirmExitModal();
       if (hasLeftRoom) return;
       hasLeftRoom = true;
 
@@ -810,7 +887,15 @@
       }, 150);
     }
 
-    window.addEventListener('beforeunload', () => {
+    window.addEventListener('beforeunload', (e) => {
+      if (skullState.isGameStarted && !skullState.isGameOver && !hasLeftRoom) {
+        e.preventDefault();
+        e.returnValue = '게임이 진행 중입니다. 페이지를 벗어나면 게임을 포기하게 됩니다.';
+        return e.returnValue;
+      }
+    });
+
+    window.addEventListener('pagehide', () => {
       if (!hasLeftRoom) {
         broadcastPacket({
           type: 'PLAYER_LEAVE',
@@ -830,6 +915,25 @@
         if (!p.isReady) return false;
       }
       return true;
+    }
+
+    function getMySkullPlayerObject() {
+      return skullState.players.find(p => 
+        p.id === myProfile.id || 
+        p.id === sessionUid || 
+        (p.name && p.name.trim() === myProfile.name.trim() && !p.isBot)
+      );
+    }
+
+    function isMySkullTurn() {
+      if (!skullState.isGameStarted) return false;
+      const active = skullState.players[skullState.currentTurnIndex];
+      if (!active) return false;
+      return (
+        active.id === myProfile.id ||
+        active.id === sessionUid ||
+        (active.name && active.name.trim() === myProfile.name.trim() && !active.isBot)
+      );
     }
 
     function startSkullGameByHost() {
@@ -866,14 +970,14 @@
       checkAndTriggerSkullBotTurn();
     }
 
-    function executeSkullPlayCard(playerId, cardType) {
+    function executeSkullPlayCard(playerId, playerName, cardType) {
       if (!isHost || skullState.phase !== 'PLACING') return;
       const player = skullState.players[skullState.currentTurnIndex];
-      if (!player || player.id !== playerId || player.isEliminated) return;
+      if (!player || (player.id !== playerId && player.name !== playerName) || player.isEliminated) return;
 
       const cardIdx = player.hand.indexOf(cardType);
       if (cardIdx === -1) {
-        if (getTotalCardsOnAllMats() >= 1) executeSkullStartBidding(playerId, 1);
+        if (getTotalCardsOnAllMats() >= 1) executeSkullStartBidding(playerId, playerName, 1);
         return;
       }
 
@@ -899,14 +1003,14 @@
       checkAndTriggerSkullBotTurn();
     }
 
-    function executeSkullStartBidding(playerId, initialBid = 1) {
+    function executeSkullStartBidding(playerId, playerName, initialBid = 1) {
       if (!isHost) return;
-      const player = skullState.players.find(p => p.id === playerId);
+      const player = skullState.players.find(p => p.id === playerId || p.name === playerName);
       if (!player || player.isEliminated) return;
 
       skullState.phase = 'BIDDING';
       skullState.currentHighBid = initialBid;
-      skullState.highBidderId = playerId;
+      skullState.highBidderId = player.id;
       skullState.passedPlayerIds = [];
 
       logSkullHistory(`🔥 ${player.name}님이 비딩을 선언했습니다! (꽃 ${initialBid}장)`);
@@ -914,16 +1018,16 @@
       advanceSkullTurnBidding();
     }
 
-    function executeSkullRaiseBid(playerId, newBidVal) {
+    function executeSkullRaiseBid(playerId, playerName, newBidVal) {
       if (!isHost || skullState.phase !== 'BIDDING') return;
       const player = skullState.players[skullState.currentTurnIndex];
-      if (!player || player.id !== playerId) return;
+      if (!player || (player.id !== playerId && player.name !== playerName)) return;
       if (newBidVal <= skullState.currentHighBid) return;
       const totalCards = getTotalCardsOnAllMats();
       if (newBidVal > totalCards) return;
 
       skullState.currentHighBid = newBidVal;
-      skullState.highBidderId = playerId;
+      skullState.highBidderId = player.id;
 
       logSkullHistory(`${player.name}님이 비딩을 올렸습니다: 꽃 ${newBidVal}장!`);
       showToast(`${player.name}: 꽃 ${newBidVal}장!`, 'info');
@@ -935,12 +1039,12 @@
       advanceSkullTurnBidding();
     }
 
-    function executeSkullPassBid(playerId) {
+    function executeSkullPassBid(playerId, playerName) {
       if (!isHost || skullState.phase !== 'BIDDING') return;
       const player = skullState.players[skullState.currentTurnIndex];
-      if (!player || player.id !== playerId) return;
+      if (!player || (player.id !== playerId && player.name !== playerName)) return;
 
-      if (!skullState.passedPlayerIds.includes(playerId)) skullState.passedPlayerIds.push(playerId);
+      if (!skullState.passedPlayerIds.includes(player.id)) skullState.passedPlayerIds.push(player.id);
       logSkullHistory(`${player.name}님이 비딩을 패스했습니다.`);
 
       const activeBidders = skullState.players.filter(p => !p.isEliminated && !skullState.passedPlayerIds.includes(p.id));
@@ -1148,14 +1252,14 @@
         const shouldStartBid = hasNoCardsLeft || (everyoneHasOne && Math.random() < 0.35 && bot.playedStack.length >= 1);
 
         if (shouldStartBid && totalCards >= 1) {
-          executeSkullStartBidding(bot.id, 1);
+          executeSkullStartBidding(bot.id, bot.name, 1);
         } else {
           let cardToPlay = 'FLOWER';
           if (bot.hand.includes('SKULL') && Math.random() < 0.3) cardToPlay = 'SKULL';
           else if (!bot.hand.includes('FLOWER')) cardToPlay = 'SKULL';
 
-          if (bot.hand.length === 0) executeSkullStartBidding(bot.id, 1);
-          else executeSkullPlayCard(bot.id, cardToPlay);
+          if (bot.hand.length === 0) executeSkullStartBidding(bot.id, bot.name, 1);
+          else executeSkullPlayCard(bot.id, bot.name, cardToPlay);
         }
       } else if (skullState.phase === 'BIDDING') {
         const totalCards = getTotalCardsOnAllMats();
@@ -1164,9 +1268,9 @@
         const maxComfortBid = hasSkullOnMyMat ? Math.min(2, totalCards) : Math.min(bot.playedStack.length + 1, totalCards);
 
         if (curBid < maxComfortBid && curBid < totalCards && Math.random() < 0.6) {
-          executeSkullRaiseBid(bot.id, curBid + 1);
+          executeSkullRaiseBid(bot.id, bot.name, curBid + 1);
         } else {
-          executeSkullPassBid(bot.id);
+          executeSkullPassBid(bot.id, bot.name);
         }
       } else if (skullState.phase === 'FLIPPING') {
         if (skullState.challengerId !== bot.id) return;
@@ -1181,13 +1285,6 @@
           executeSkullFlipCard(chosenTarget.id);
         }
       }
-    }
-
-    function isMySkullTurn() {
-      if (!skullState.isGameStarted) return false;
-      const active = skullState.players[skullState.currentTurnIndex];
-      if (!active) return false;
-      return active.id === myProfile.id || (active.name === myProfile.name && !active.isBot);
     }
 
     function renderSkullAll() {
@@ -1263,7 +1360,7 @@
       chipsContainer.innerHTML = '';
       skullState.players.forEach((p, idx) => {
         const isHostPlayer = (idx === 0);
-        const isMe = (p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+        const isMe = (p.id === myProfile.id || p.id === sessionUid || (p.name && p.name.trim() === myProfile.name.trim() && !p.isBot));
         const chip = document.createElement('div');
         let statusBadge = '';
         if (isHostPlayer) statusBadge = `<span class="text-[10px] bg-red-500/20 text-red-300 border border-red-500/40 px-1.5 py-0.5 rounded-full font-bold">방장 👑</span>`;
@@ -1280,7 +1377,7 @@
         chipsContainer.appendChild(chip);
       });
 
-      const me = skullState.players.find(p => p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+      const me = getMySkullPlayerObject();
       const allReady = areAllGuestsReady();
 
       if (isHost) {
@@ -1312,13 +1409,13 @@
       const grid = document.getElementById('skullMatsGrid');
       grid.innerHTML = '';
       const challenger = skullState.players.find(p => p.id === skullState.challengerId);
-      const isChallengerMe = challenger && (challenger.id === myProfile.id || challenger.name === myProfile.name);
+      const isChallengerMe = challenger && (challenger.id === myProfile.id || challenger.id === sessionUid || challenger.name === myProfile.name);
       const myUnrevealedCount = challenger ? challenger.playedStack.filter(c => !c.revealed).length : 0;
 
       skullState.players.forEach((p, idx) => {
         const isCurrentTurn = (idx === skullState.currentTurnIndex);
         const isThisPlayerChallenger = (skullState.phase === 'FLIPPING' && skullState.challengerId === p.id);
-        const isMe = (p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+        const isMe = (p.id === myProfile.id || p.id === sessionUid || (p.name && p.name.trim() === myProfile.name.trim() && !p.isBot));
 
         let topUnrevealedIdx = -1;
         for (let i = p.playedStack.length - 1; i >= 0; i--) {
@@ -1409,7 +1506,7 @@
       const handRack = document.getElementById('skullHandRack');
       const btnChallenge = document.getElementById('btnSkullTriggerChallenge');
       const isMy = isMySkullTurn();
-      const me = skullState.players.find(p => p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+      const me = getMySkullPlayerObject();
 
       if (skullState.phase === 'PLACING') {
         handRack.innerHTML = '';
@@ -1447,7 +1544,7 @@
       if (!roster) return;
       roster.innerHTML = '';
       skullState.players.forEach(p => {
-        const isMe = (p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+        const isMe = (p.id === myProfile.id || p.id === sessionUid || (p.name && p.name.trim() === myProfile.name.trim() && !p.isBot));
         const item = document.createElement('div');
         item.className = `p-2.5 rounded-xl border flex items-center justify-between text-xs ${p.isEliminated ? 'bg-stone-950/40 border-stone-800 text-stone-600' : 'bg-stone-950/90 border-stone-800 text-stone-200'}`;
         let rosesHtml = '';
@@ -1464,13 +1561,13 @@
     }
 
     function handleSkullLobbyActionButtonClick() {
-      const me = skullState.players.find(p => p.id === myProfile.id || (p.name === myProfile.name && !p.isBot));
+      const me = getMySkullPlayerObject();
       if (isHost) {
         if (skullState.players.length < 2) { showToast('최소 2인 이상 필요합니다.'); return; }
         if (!areAllGuestsReady()) { showToast('모든 게스트가 준비를 마쳐야 합니다.'); return; }
         startSkullGameByHost();
       } else {
-        const nextReady = !me.isReady;
+        const nextReady = me ? !me.isReady : true;
         playSynthSound('ready');
         if (me) me.isReady = nextReady;
         renderSkullAll();
@@ -1480,14 +1577,14 @@
 
     function handleSkullCardSelect(cardType) {
       if (!isMySkullTurn() || skullState.phase !== 'PLACING') return;
-      if (isHost) executeSkullPlayCard(myProfile.id, cardType);
-      else broadcastPacket({ type: 'SKULL_ACTION_PLAY_CARD', playerId: myProfile.id, cardType: cardType });
+      if (isHost) executeSkullPlayCard(myProfile.id, myProfile.name, cardType);
+      else broadcastPacket({ type: 'SKULL_ACTION_PLAY_CARD', playerId: myProfile.id, playerName: myProfile.name, cardType: cardType });
     }
 
     function handleSkullTriggerChallenge() {
       if (!isMySkullTurn() || skullState.phase !== 'PLACING') return;
-      if (isHost) executeSkullStartBidding(myProfile.id, 1);
-      else broadcastPacket({ type: 'SKULL_ACTION_START_BID', playerId: myProfile.id, bidVal: 1 });
+      if (isHost) executeSkullStartBidding(myProfile.id, myProfile.name, 1);
+      else broadcastPacket({ type: 'SKULL_ACTION_START_BID', playerId: myProfile.id, playerName: myProfile.name, bidVal: 1 });
     }
 
     function adjustSkullBidVal(delta) {
@@ -1501,20 +1598,20 @@
 
     function handleSkullBidRaise() {
       if (!isMySkullTurn() || skullState.phase !== 'BIDDING') return;
-      if (isHost) executeSkullRaiseBid(myProfile.id, localSkullBidInputVal);
-      else broadcastPacket({ type: 'SKULL_ACTION_RAISE_BID', playerId: myProfile.id, bidVal: localSkullBidInputVal });
+      if (isHost) executeSkullRaiseBid(myProfile.id, myProfile.name, localSkullBidInputVal);
+      else broadcastPacket({ type: 'SKULL_ACTION_RAISE_BID', playerId: myProfile.id, playerName: myProfile.name, bidVal: localSkullBidInputVal });
     }
 
     function handleSkullBidPass() {
       if (!isMySkullTurn() || skullState.phase !== 'BIDDING') return;
-      if (isHost) executeSkullPassBid(myProfile.id);
-      else broadcastPacket({ type: 'SKULL_ACTION_PASS_BID', playerId: myProfile.id });
+      if (isHost) executeSkullPassBid(myProfile.id, myProfile.name);
+      else broadcastPacket({ type: 'SKULL_ACTION_PASS_BID', playerId: myProfile.id, playerName: myProfile.name });
     }
 
     function handleSkullFlipClick(targetPlayerId) {
       if (skullState.phase !== 'FLIPPING') return;
       const challenger = skullState.players.find(p => p.id === skullState.challengerId);
-      if (!challenger || (challenger.id !== myProfile.id && challenger.name !== myProfile.name)) return;
+      if (!challenger || (challenger.id !== myProfile.id && challenger.id !== sessionUid && challenger.name !== myProfile.name)) return;
       if (isHost) executeSkullFlipCard(targetPlayerId);
       else broadcastPacket({ type: 'SKULL_ACTION_FLIP_CARD', playerId: myProfile.id, targetPlayerId: targetPlayerId });
     }
@@ -1543,7 +1640,7 @@
       if (!roster) return;
       roster.innerHTML = '';
       skullState.players.forEach((p, idx) => {
-        const isSelf = p.id === myProfile.id || (p.name === myProfile.name && !p.isBot);
+        const isSelf = p.id === myProfile.id || p.id === sessionUid || (p.name && p.name.trim() === myProfile.name.trim() && !p.isBot);
         const row = document.createElement('div');
         row.className = 'flex items-center justify-between p-2 rounded-xl bg-stone-950 border border-stone-800 text-xs';
         let statusText = '';
@@ -1606,7 +1703,7 @@
       myProfile.name = newName.trim();
       sessionStorage.setItem('blounge_tab_name', myProfile.name);
       localStorage.setItem('blounge_global_name', myProfile.name);
-      const me = skullState.players.find(p => p.id === myProfile.id);
+      const me = skullState.players.find(p => p.id === myProfile.id || p.name === myProfile.name);
       if (me) me.name = myProfile.name;
       reportGamePresence();
       broadcastGameState();
@@ -1617,7 +1714,7 @@
       myProfile.avatar = newAvatar;
       sessionStorage.setItem('blounge_tab_avatar', myProfile.avatar);
       localStorage.setItem('blounge_global_avatar', myProfile.avatar);
-      const me = skullState.players.find(p => p.id === myProfile.id);
+      const me = skullState.players.find(p => p.id === myProfile.id || p.name === myProfile.name);
       if (me) me.avatar = myProfile.avatar;
       reportGamePresence();
       broadcastGameState();
