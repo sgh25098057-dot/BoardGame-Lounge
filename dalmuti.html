@@ -231,7 +231,7 @@
   </main>
 
   <!-- MODAL: CONFIRM LEAVE GAME -->
-  <div id="confirmExitModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3">
+  <div id="confirmExitModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-[70] hidden flex items-center justify-center p-3">
     <div class="bg-stone-900 border-2 border-purple-500/60 w-full max-w-sm rounded-3xl p-5 shadow-2xl flex flex-col items-center text-center gap-3">
       <div class="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-300 flex items-center justify-center text-2xl">
         ⚠️
@@ -323,7 +323,7 @@
         <button id="btnStartNextRound" onclick="handleStartNextRound()" class="flex-1 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-amber-500 to-amber-400 hover:from-purple-500 hover:to-amber-300 text-stone-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
           👑 다음 라운드 시작 (서열 재배치)
         </button>
-        <button onclick="requestExitToLobby()" class="px-4 py-3 rounded-2xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold text-xs transition-all flex items-center justify-center active:scale-95">
+        <button onclick="executeExitToLobby()" class="px-4 py-3 rounded-2xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold text-xs transition-all flex items-center justify-center active:scale-95">
           로비 홈
         </button>
       </div>
@@ -371,7 +371,6 @@
   <div id="toastBox" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col gap-2 items-center"></div>
 
   <script>
-    // Audio synthesizer
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     let audioCtx = null;
     function getAudioContext() {
@@ -493,7 +492,7 @@
       }
     }
 
-    // Page Visibility API
+    // Page Visibility API - Sleep heartbeat when hidden to save writes
     document.addEventListener('visibilitychange', () => {
       isDocumentVisible = !document.hidden;
       if (isDocumentVisible) {
@@ -526,7 +525,7 @@
 
     let dalmutiState = {
       isStarted: false,
-      phase: 'PLAYING', // 'TAXATION', 'PLAYING', 'ROUND_OVER'
+      phase: 'WAITING', // 'WAITING', 'TAXATION', 'PLAYING', 'ROUND_OVER'
       turnIndex: 0,
       trickCountRequired: 0,
       currentRankOnField: 99,
@@ -607,7 +606,7 @@
     function handlePacket(pkt) {
       if (!pkt || pkt.sender === sessionUid) return;
 
-      // SYNC 패킷은 타임스탬프 기준으로 강제 수신 처리 (actionId 중복 체크로 버려짐 방지)
+      // SYNC 패킷은 타임스탬프 기준으로 강제 수신 처리
       if (pkt.type === 'SYNC') {
         const incomingTimestamp = pkt.stateTimestamp || pkt.timestamp || 0;
         if (incomingTimestamp >= lastStateTimestamp) {
@@ -636,7 +635,7 @@
                 });
                 return;
               }
-              if (dalmutiState.isStarted) {
+              if (dalmutiState.isStarted && dalmutiState.phase !== 'ROUND_OVER') {
                 broadcast({
                   type: 'REJECT_ENTRY',
                   targetPlayerId: pkt.id,
@@ -726,9 +725,9 @@
       }
     }
 
-    // SYNC 패킷 처리 시 턴 및 선택 상태 안전 보정
+    // SYNC 패킷 처리 시 턴 및 선택 상태 안전 보정 & 새 라운드 시 모달 자동 닫기
     function processSyncStatePacket(incomingState) {
-      const wasStarted = dalmutiState.isStarted;
+      const prevPhase = dalmutiState.phase;
       const prevTurnIndex = dalmutiState.turnIndex;
 
       // 턴이 바뀌었으면 제출 잠금 및 손패 선택 초기화
@@ -736,7 +735,6 @@
         selectedHandIndices = [];
         isSubmitting = false;
       } else {
-        // 동일 턴일 때만 유효한 손패 인덱스 보존
         const myPlayer = incomingState.players.find(p => p.id === sessionUid || (p.name && p.name.trim() === myName.trim() && !p.isBot));
         if (myPlayer) {
           selectedHandIndices = selectedHandIndices.filter(idx => idx < myPlayer.hand.length);
@@ -746,10 +744,19 @@
       dalmutiState = incomingState;
       isSubmitting = false;
 
-      if (!wasStarted && dalmutiState.isStarted) {
+      // 🔥 핵심 수정: 새 라운드가 시작되었으면 게스트 화면의 라운드 종료 모달을 강제로 닫음!
+      if (dalmutiState.phase !== 'ROUND_OVER') {
+        const roundModal = document.getElementById('roundOverModal');
+        if (roundModal && !roundModal.classList.contains('hidden')) {
+          roundModal.classList.add('hidden');
+        }
+      }
+
+      if (prevPhase === 'WAITING' && dalmutiState.isStarted) {
         playBeep(587, 'triangle', 0.25);
         if (typeof confetti === 'function') confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
       }
+
       renderAll();
       checkRoundOverModalSync();
     }
@@ -776,7 +783,7 @@
       const remainingHumans = dalmutiState.players.filter(p => !p.isBot);
       if (remainingHumans.length === 0) {
         dalmutiState.isStarted = false;
-        dalmutiState.phase = 'PLAYING';
+        dalmutiState.phase = 'WAITING';
         return;
       }
 
@@ -810,7 +817,8 @@
 
     // Modal Confirmation for Leaving Active Game
     function requestExitToLobby() {
-      if (dalmutiState.isStarted && dalmutiState.phase !== 'ROUND_OVER') {
+      // 라운드가 종료된 상태이거나 대기실 상태이면 즉시 나가기 허용!
+      if (dalmutiState.isStarted && dalmutiState.phase !== 'ROUND_OVER' && dalmutiState.phase !== 'WAITING') {
         document.getElementById('confirmExitModal').classList.remove('hidden');
       } else {
         executeExitToLobby();
@@ -847,12 +855,11 @@
 
       setTimeout(() => {
         window.location.href = 'index.html';
-      }, 150);
+      }, 120);
     }
 
-    // Prevent accidental reload or navigation while playing
     window.addEventListener('beforeunload', (e) => {
-      if (dalmutiState.isStarted && dalmutiState.phase !== 'ROUND_OVER' && !hasLeftRoom) {
+      if (dalmutiState.isStarted && dalmutiState.phase !== 'ROUND_OVER' && dalmutiState.phase !== 'WAITING' && !hasLeftRoom) {
         e.preventDefault();
         e.returnValue = '게임이 진행 중입니다. 페이지를 벗어나면 게임을 포기하게 됩니다.';
         return e.returnValue;
@@ -932,6 +939,7 @@
 
     function startRoundDeal() {
       dalmutiState.isStarted = true;
+      dalmutiState.phase = 'PLAYING';
       dalmutiState.finishedCount = 0;
       dalmutiState.trickCountRequired = 0;
       dalmutiState.currentRankOnField = 99;
@@ -957,6 +965,7 @@
       dalmutiState.turnIndex = 0;
       selectedHandIndices = [];
 
+      // 방장 및 게스트 모달창 닫기
       const modal = document.getElementById('roundOverModal');
       if (modal) modal.classList.add('hidden');
       closeTaxModal();
@@ -1245,9 +1254,12 @@
         return;
       }
 
+      // 서열 순서대로 플레이어 좌석 재배치 (1위 대달무티부터 순서대로)
       dalmutiState.players.sort((a, b) => (a.finishedOrder || 99) - (b.finishedOrder || 99));
       dalmutiState.roundNumber = (dalmutiState.roundNumber || 1) + 1;
+      
       startRoundDeal();
+      syncState(); // 전체 게스트에게 즉각 새 라운드 패킷 발송
     }
 
     function toggleCardSelect(index) {
@@ -1274,7 +1286,6 @@
       );
     }
 
-    // 턴 일치 여부 정밀 판정 (ID 및 닉네임 다중 매칭 안전망)
     function isMyTurn() {
       if (!dalmutiState.isStarted || dalmutiState.phase !== 'PLAYING') return false;
       const active = dalmutiState.players[dalmutiState.turnIndex];
@@ -1328,7 +1339,6 @@
       if (isHost) {
         executeRemotePlayCards(sessionUid, myName, copyIndices);
       } else {
-        // 1.2초 내 응답 없으면 자동 락 해제
         setTimeout(() => { if (isSubmitting) { isSubmitting = false; renderHand(); } }, 1200);
         broadcast({ 
           type: 'ACTION_PLAY_CARDS', 
@@ -1527,6 +1537,11 @@
       const btnNext = document.getElementById('btnStartNextRound');
       if (btnNext) {
         btnNext.disabled = !isHost;
+        btnNext.className = `flex-1 py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95 ${
+          isHost 
+            ? 'bg-gradient-to-r from-purple-600 via-amber-500 to-amber-400 hover:from-purple-500 hover:to-amber-300 text-stone-950 cursor-pointer' 
+            : 'bg-stone-800 text-stone-500 cursor-not-allowed opacity-60'
+        }`;
         btnNext.innerHTML = isHost 
           ? `<span>👑 제${(dalmutiState.roundNumber || 1) + 1}라운드 시작 (서열 좌석 재배치)</span>` 
           : `<span>방장의 다음 라운드 시작 대기 중...</span>`;
@@ -1536,8 +1551,7 @@
     }
 
     function checkRoundOverModalSync() {
-      const allDone = dalmutiState.isStarted && dalmutiState.players.filter(p => p.hand.length > 0).length <= 1 && dalmutiState.finishedCount >= dalmutiState.players.length - 1;
-      if (allDone) {
+      if (dalmutiState.phase === 'ROUND_OVER') {
         showRoundOverModal();
       }
     }
@@ -1817,7 +1831,7 @@
       roster.innerHTML = '';
 
       dalmutiState.players.forEach((p, idx) => {
-        const isCurrent = (idx === dalmutiState.turnIndex && dalmutiState.isStarted);
+        const isCurrent = (idx === dalmutiState.turnIndex && dalmutiState.isStarted && dalmutiState.phase === 'PLAYING');
         const isSelf = (p.id === sessionUid || p.name === myName);
         const el = document.createElement('div');
         el.className = `p-2 rounded-xl border text-xs flex flex-col justify-between ${isCurrent ? 'bg-purple-950/50 border-purple-500 ring-2 ring-purple-400' : 'bg-stone-950 border-stone-800'}`;
