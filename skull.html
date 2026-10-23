@@ -39,7 +39,7 @@
   <!-- TOP APP HEADER -->
   <header class="bg-stone-900/90 border-b border-stone-800/80 backdrop-blur sticky top-0 z-40 px-3 sm:px-6 py-2.5 flex items-center justify-between shadow-md">
     <div class="flex items-center gap-3">
-      <a href="index.html" class="w-9 h-9 rounded-xl bg-gradient-to-tr from-red-600 to-amber-500 flex items-center justify-center font-brand font-black text-stone-950 text-xl shadow-lg shadow-red-500/20 active:scale-95 transition-all" title="로비로 돌아가기">
+      <a href="index.html" onclick="handleLeaveRoom(event)" class="w-9 h-9 rounded-xl bg-gradient-to-tr from-red-600 to-amber-500 flex items-center justify-center font-brand font-black text-stone-950 text-xl shadow-lg shadow-red-500/20 active:scale-95 transition-all" title="로비로 돌아가기">
         💀
       </a>
       <div>
@@ -55,10 +55,10 @@
           </button>
         </div>
         <div class="flex items-center gap-2 mt-0.5">
-          <p id="headerStatusText" class="text-[11px] text-stone-400 truncate max-w-[160px] sm:max-w-xs">온라인 블러핑 세션</p>
+          <p id="headerStatusText" class="text-[11px] text-stone-400 truncate max-w-[160px] sm:max-w-xs">온라인 대기실</p>
           <span id="cloudStatusDot" class="inline-flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-950/70 px-1.5 py-0.2 rounded border border-red-500/30">
             <span class="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></span>
-            <span>클라우드 연동됨</span>
+            <span>클라우드 동기화</span>
           </span>
         </div>
       </div>
@@ -66,7 +66,7 @@
 
     <!-- Header Actions -->
     <div class="flex items-center gap-1.5 sm:gap-2">
-      <a href="index.html" class="px-2.5 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95">
+      <a href="index.html" onclick="handleLeaveRoom(event)" class="px-2.5 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95">
         <svg class="w-4 h-4 text-amber-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
         <span class="hidden sm:inline">로비 홈</span>
       </a>
@@ -215,8 +215,19 @@
           <div id="skullChatMessageList" class="flex-1 overflow-y-auto max-h-32 text-xs space-y-1.5 pr-1 mb-2">
             <p class="text-stone-500 italic text-[11px] text-center my-2">클라우드 실시간 멀티플레이 세션입니다.</p>
           </div>
-          <form onsubmit="handleChatSubmit(event)" class="flex items-center gap-1.5 pt-1 border-t border-stone-800/80">
-            <input id="skullChatInputText" type="text" maxlength="60" placeholder="메시지를 입력하세요..." class="flex-1 bg-stone-800/90 border border-stone-700 rounded-xl px-2.5 py-1 text-xs text-stone-100 focus:outline-none focus:border-red-400">
+          <form onsubmit="handleChatSubmit(event)" class="flex items-center gap-1.5 pt-1 border-t border-stone-800/80" autocomplete="off">
+            <input 
+              id="skullChatInputText" 
+              type="text" 
+              maxlength="60" 
+              placeholder="메시지를 입력하세요..." 
+              class="flex-1 bg-stone-800/90 border border-stone-700 rounded-xl px-2.5 py-1 text-xs text-stone-100 focus:outline-none focus:border-red-400"
+              autocomplete="new-password"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              name="blounge_skull_prevent_history"
+            >
             <button type="submit" class="px-3 py-1 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition-colors">전송</button>
           </form>
         </div>
@@ -325,7 +336,7 @@
         <button onclick="resetCurrentGameAction()" class="flex-1 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs tracking-wider uppercase transition-all shadow-lg active:scale-95">
           새 게임 대기실
         </button>
-        <a href="index.html" class="px-4 py-3 rounded-2xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold text-xs transition-all flex items-center justify-center active:scale-95">
+        <a href="index.html" onclick="handleLeaveRoom(event)" class="px-4 py-3 rounded-2xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold text-xs transition-all flex items-center justify-center active:scale-95">
           로비 홈
         </a>
       </div>
@@ -410,6 +421,16 @@
             osc.connect(gain); gain.connect(ctx.destination);
             osc.start(now); osc.stop(now + 0.85);
           });
+        } else if (type === 'leave') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(400, now);
+          osc.frequency.exponentialRampToValueAtTime(220, now + 0.15);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.start(now); osc.stop(now + 0.16);
         }
       } catch (e) {}
     }
@@ -441,6 +462,8 @@
 
     let syncChannel = null;
     let processedActionIds = new Set();
+    let hasLeftRoom = false;
+    let presenceTimer = null;
 
     // ==========================================
     // FIREBASE CLOUD REALTIME CONFIG & SYNC
@@ -483,9 +506,29 @@
         }, (err) => {
           console.warn('Firestore cloud sync notice:', err);
         });
+
+        // Start presence reporting to Lobby
+        reportGamePresence();
+        presenceTimer = setInterval(reportGamePresence, 12000);
+
       } catch (err) {
         console.warn('Firebase init fallback:', err);
       }
+    }
+
+    function reportGamePresence() {
+      if (!firestoreDb || hasLeftRoom) return;
+      firestoreDb.collection('blounge_presence').doc(sessionUid).set({
+        id: sessionUid,
+        name: myProfile.name,
+        avatar: myProfile.avatar,
+        status: 'IN_GAME',
+        statusText: '스컬 플레이 중',
+        gameTitle: '스컬 (Skull)',
+        gameFile: 'skull.html',
+        roomCode: currentRoomCode,
+        lastSeen: Date.now()
+      }, { merge: true }).catch(() => {});
     }
 
     function createSkullPlayerObj(id, name, avatar, isBot = false, isReady = false) {
@@ -585,9 +628,25 @@
         case 'PLAYER_JOIN': {
           if (isHost) {
             let existing = skullState.players.find(p => p.id === data.profile.id);
-            if (!existing && skullState.players.length < 6) {
+            if (!existing) {
+              if (skullState.players.length >= 6) {
+                broadcastPacket({
+                  type: 'REJECT_ENTRY',
+                  targetPlayerId: data.profile.id,
+                  reason: '현재 방의 인원이 가득 찼습니다! (최대 6인)'
+                });
+                return;
+              }
+              if (skullState.isGameStarted) {
+                broadcastPacket({
+                  type: 'REJECT_ENTRY',
+                  targetPlayerId: data.profile.id,
+                  reason: '이미 게임이 진행 중인 방입니다!'
+                });
+                return;
+              }
               skullState.players.push(createSkullPlayerObj(data.profile.id, data.profile.name, data.profile.avatar, false, false));
-            } else if (existing) {
+            } else {
               existing.name = data.profile.name;
               existing.avatar = data.profile.avatar;
             }
@@ -595,6 +654,21 @@
             renderSkullAll();
           }
           appendChatMessage('SYSTEM', `${data.profile.avatar} ${data.profile.name}님이 입장하셨습니다.`);
+          break;
+        }
+
+        case 'REJECT_ENTRY': {
+          if (data.targetPlayerId === myProfile.id) {
+            showToast(data.reason || '방 입장이 거부되었습니다.');
+            setTimeout(() => {
+              window.location.href = 'index.html';
+            }, 1500);
+          }
+          break;
+        }
+
+        case 'PLAYER_LEAVE': {
+          handleRemotePlayerLeave(data);
           break;
         }
 
@@ -653,6 +727,100 @@
         }
       }
     }
+
+    function handleRemotePlayerLeave(packet) {
+      const leavingId = packet.playerId;
+      const leavingName = packet.playerName || '플레이어';
+      const leavingAvatar = packet.playerAvatar || '💀';
+
+      appendChatMessage('SYSTEM', `🚪 ${leavingAvatar} ${leavingName}님이 방을 나갔습니다.`);
+      showToast(`🚪 ${leavingName}님이 방을 나갔습니다.`, 'info');
+      playSynthSound('leave');
+
+      const leavingIndex = skullState.players.findIndex(p => p.id === leavingId);
+      if (leavingIndex === -1) return;
+
+      const wasLeavingHost = (leavingIndex === 0) || packet.wasHost;
+      skullState.players.splice(leavingIndex, 1);
+
+      if (skullState.currentTurnIndex >= skullState.players.length) {
+        skullState.currentTurnIndex = 0;
+      }
+
+      const remainingHumans = skullState.players.filter(p => !p.isBot);
+      if (remainingHumans.length === 0) {
+        resetCurrentGameAction();
+        return;
+      }
+
+      if (wasLeavingHost) {
+        const newHostIndex = skullState.players.findIndex(p => !p.isBot);
+        if (newHostIndex !== -1) {
+          if (newHostIndex !== 0) {
+            const [newHostPlayer] = skullState.players.splice(newHostIndex, 1);
+            skullState.players.unshift(newHostPlayer);
+          }
+          const newHostPlayer = skullState.players[0];
+          newHostPlayer.isReady = true;
+
+          if (newHostPlayer.id === myProfile.id) {
+            isHost = true;
+            showToast('👑 이전 방장이 퇴장하여 귀하가 새로운 방장이 되었습니다!', 'success');
+            broadcastGameState();
+          }
+        }
+      } else {
+        if (isHost) {
+          if (skullState.isGameStarted && !skullState.isGameOver) {
+            checkAndTriggerSkullBotTurn();
+          }
+          broadcastGameState();
+        }
+      }
+
+      renderSkullAll();
+    }
+
+    function handleLeaveRoom(e) {
+      if (e) e.preventDefault();
+      if (hasLeftRoom) return;
+      hasLeftRoom = true;
+
+      broadcastPacket({
+        type: 'PLAYER_LEAVE',
+        playerId: myProfile.id,
+        playerName: myProfile.name,
+        playerAvatar: myProfile.avatar,
+        wasHost: isHost
+      });
+
+      if (firestoreDb) {
+        firestoreDb.collection('blounge_presence').doc(sessionUid).set({
+          status: 'LOBBY',
+          statusText: '로비 대기 중',
+          gameTitle: null,
+          gameFile: null,
+          roomCode: null,
+          lastSeen: Date.now()
+        }, { merge: true }).catch(() => {});
+      }
+
+      setTimeout(() => {
+        window.location.href = 'index.html';
+      }, 150);
+    }
+
+    window.addEventListener('beforeunload', () => {
+      if (!hasLeftRoom) {
+        broadcastPacket({
+          type: 'PLAYER_LEAVE',
+          playerId: myProfile.id,
+          playerName: myProfile.name,
+          playerAvatar: myProfile.avatar,
+          wasHost: isHost
+        });
+      }
+    });
 
     function areAllGuestsReady() {
       if (skullState.players.length < 2) return false;
@@ -1440,6 +1608,7 @@
       localStorage.setItem('blounge_global_name', myProfile.name);
       const me = skullState.players.find(p => p.id === myProfile.id);
       if (me) me.name = myProfile.name;
+      reportGamePresence();
       broadcastGameState();
       renderSkullAll();
     }
@@ -1450,6 +1619,7 @@
       localStorage.setItem('blounge_global_avatar', myProfile.avatar);
       const me = skullState.players.find(p => p.id === myProfile.id);
       if (me) me.avatar = myProfile.avatar;
+      reportGamePresence();
       broadcastGameState();
       renderSkullAll();
     }
@@ -1509,9 +1679,13 @@
       if (!list) return;
       const msg = document.createElement('div');
       msg.className = 'text-[11px] leading-tight break-all';
-      msg.innerHTML = `<span class="font-bold ${sender === 'SYSTEM' ? 'text-amber-400' : 'text-red-400'}">${sender}:</span> <span class="text-stone-200">${text}</span>`;
+      msg.innerHTML = `<span class="font-bold ${sender === 'SYSTEM' ? 'text-amber-400' : 'text-red-400'}">${sender}:</span> <span class="text-stone-200">${escapeHtml(text)}</span>`;
       list.appendChild(msg);
       list.scrollTop = list.scrollHeight;
+    }
+
+    function escapeHtml(string) {
+      return String(string).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     function fireConfetti() {

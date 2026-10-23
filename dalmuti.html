@@ -40,7 +40,7 @@
   <!-- TOP HEADER -->
   <header class="bg-stone-900/90 border-b border-stone-800 backdrop-blur sticky top-0 z-40 px-3 sm:px-6 py-2.5 flex items-center justify-between shadow-md">
     <div class="flex items-center gap-3">
-      <a href="index.html" class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-brand font-black text-stone-950 text-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all" title="로비로 돌아가기">
+      <a href="index.html" onclick="handleLeaveRoom(event)" class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-amber-400 flex items-center justify-center font-brand font-black text-stone-950 text-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all" title="로비로 돌아가기">
         👑
       </a>
       <div>
@@ -66,7 +66,7 @@
       <button onclick="openRulesModal()" class="px-2.5 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-semibold flex items-center gap-1.5 transition-colors">
         <span>📜 규칙</span>
       </button>
-      <a href="index.html" class="px-2.5 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95">
+      <a href="index.html" onclick="handleLeaveRoom(event)" class="px-2.5 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95">
         <span>🏠 로비 홈</span>
       </a>
       <button onclick="openRosterModal()" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold shadow-md shadow-amber-500/20 active:scale-95 transition-all">
@@ -106,9 +106,7 @@
           <h3 class="text-base font-black text-amber-300">👑 달무티 대기실 (3~8인)</h3>
           <p id="lobbyGuide" class="text-xs text-stone-300">인원이 부족하면 [참가자/봇] 메뉴에서 AI 봇을 추가하세요.</p>
           <div id="lobbyPlayersChips" class="grid grid-cols-2 gap-2 my-1"></div>
-          <button id="btnLobbyAction" onclick="handleLobbyAction()" class="w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95">
-            게임 시작 (3인 이상)
-          </button>
+          <button id="btnLobbyAction" onclick="handleLobbyAction()" class="w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95"></button>
         </div>
 
         <!-- REVOLUTION / TAXATION BANNER -->
@@ -165,22 +163,60 @@
 
     </div>
 
-    <!-- Players Roster & Trick History Bar -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-      <div class="md:col-span-2 bg-stone-900/90 border border-stone-800 rounded-2xl p-3 flex flex-col gap-2 shadow-lg">
+    <!-- Players Roster, Quick Psych Chat & Game Logs Tabs -->
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+      <!-- Players Roster (7 cols) -->
+      <div class="md:col-span-7 bg-stone-900/90 border border-stone-800 rounded-2xl p-3 flex flex-col gap-2 shadow-lg">
         <div class="flex items-center justify-between border-b border-stone-800 pb-1.5 text-xs">
           <span class="font-bold text-stone-200">참가자 서열 및 남은 손패</span>
           <span class="text-[10px] text-purple-400">손패를 먼저 턴 순서대로 등극</span>
         </div>
         <div id="inGameRoster" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+
+        <!-- Quick Psych Chat Bar -->
+        <div class="pt-2 border-t border-stone-800/80 flex items-center gap-1.5 overflow-x-auto">
+          <span class="text-[10px] font-bold text-stone-400 shrink-0">빠른 심리:</span>
+          <button onclick="sendQuickChat('👑 인생은 불공평하다!')" class="px-2 py-0.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-[11px] whitespace-nowrap active:scale-95 transition-all">👑 인생은 불공평하다!</button>
+          <button onclick="sendQuickChat('🃏 나 광대 2장 있다?')" class="px-2 py-0.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-[11px] whitespace-nowrap active:scale-95 transition-all">🃏 나 광대 2장 있다?</button>
+          <button onclick="sendQuickChat('🔥 혁명의 시간이다!')" class="px-2 py-0.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-[11px] whitespace-nowrap active:scale-95 transition-all">🔥 혁명의 시간이다!</button>
+          <button onclick="sendQuickChat('💩 농노 탈출 가즈아')" class="px-2 py-0.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-[11px] whitespace-nowrap active:scale-95 transition-all">💩 농노 탈출 가즈아</button>
+        </div>
       </div>
 
-      <div class="bg-stone-900/90 border border-stone-800 rounded-2xl p-3 flex flex-col gap-1.5 shadow-lg">
-        <div class="flex items-center justify-between border-b border-stone-800 pb-1 text-xs">
-          <span class="font-bold text-stone-200">진행 기록</span>
-          <span class="text-[10px] text-stone-500">실시간 로그</span>
+      <!-- Feed / Chat & Logs Tabs (5 cols) -->
+      <div class="md:col-span-5 bg-stone-900/90 border border-stone-800 rounded-2xl p-3 shadow-lg flex flex-col min-h-[170px]">
+        <div class="flex items-center justify-between border-b border-stone-800 pb-1.5 mb-2">
+          <div class="flex items-center gap-2">
+            <button id="dalmutiTabBtnChat" onclick="switchDalmutiFeedTab('chat')" class="text-xs font-bold text-purple-400 pb-1 border-b-2 border-purple-400">룸 대화</button>
+            <button id="dalmutiTabBtnLogs" onclick="switchDalmutiFeedTab('logs')" class="text-xs font-semibold text-stone-400 pb-1 hover:text-stone-200">진행 기록</button>
+          </div>
+          <span id="dalmutiPlayerOnlineCount" class="text-[10px] text-stone-400 font-medium">참여자: 1명</span>
         </div>
-        <div id="dalmutiLogs" class="text-[11px] font-mono text-stone-400 h-24 overflow-y-auto space-y-1 pr-1"></div>
+
+        <div id="dalmutiChatTabContent" class="flex flex-col flex-1">
+          <div id="dalmutiChatMessageList" class="flex-1 overflow-y-auto max-h-28 text-xs space-y-1.5 pr-1 mb-2">
+            <p class="text-stone-500 italic text-[11px] text-center my-1">달무티 멀티플레이 세션입니다.</p>
+          </div>
+          <form onsubmit="handleChatSubmit(event)" class="flex items-center gap-1.5 pt-1 border-t border-stone-800/80" autocomplete="off">
+            <input 
+              id="dalmutiChatInputText" 
+              type="text" 
+              maxlength="60" 
+              placeholder="메시지를 입력하세요..." 
+              class="flex-1 bg-stone-800/90 border border-stone-700 rounded-xl px-2.5 py-1 text-xs text-stone-100 focus:outline-none focus:border-purple-400"
+              autocomplete="new-password"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              name="blounge_dalmuti_prevent_history"
+            >
+            <button type="submit" class="px-3 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-colors">전송</button>
+          </form>
+        </div>
+
+        <div id="dalmutiLogsTabContent" class="hidden flex-1 overflow-y-auto max-h-36 text-[11px] font-mono text-stone-300 space-y-1 pr-1">
+          <p class="text-stone-500">게임 준비가 완료되었습니다.</p>
+        </div>
       </div>
     </div>
 
@@ -191,9 +227,9 @@
     <div class="bg-stone-900 border border-stone-700 w-full max-w-sm rounded-3xl p-5 shadow-2xl flex flex-col gap-3">
       <div class="flex items-center justify-between pb-2 border-b border-stone-800">
         <h3 class="font-bold text-sm text-stone-100">달무티 참가자 관리</h3>
-        <button onclick="closeRosterModal()" class="text-stone-400 hover:text-stone-100">✕</button>
+        <button onclick="closeRosterModal()" class="text-stone-400 hover:text-stone-100 font-bold">✕</button>
       </div>
-      <div id="modalRosterList" class="space-y-1.5 max-h-48 overflow-y-auto"></div>
+      <div id="modalRosterList" class="space-y-1.5 max-h-48 overflow-y-auto pr-1"></div>
       <div class="flex gap-2 pt-2 border-t border-stone-800">
         <button onclick="addBotPlayer()" class="flex-1 py-2 rounded-xl bg-purple-900/80 hover:bg-purple-800 text-purple-200 font-bold text-xs">
           + AI 봇 추가
@@ -205,7 +241,7 @@
     </div>
   </div>
 
-  <!-- MODAL: TAXATION RESULT POPUP (세금 징수 결과 팝업) -->
+  <!-- MODAL: TAXATION RESULT POPUP -->
   <div id="taxModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-3">
     <div class="bg-stone-900 border-2 border-amber-500/70 w-full max-w-md rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col items-center text-center gap-4">
       <div class="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-3xl shadow-lg">
@@ -216,9 +252,7 @@
         <p class="text-xs text-stone-300 mt-1">"인생은 불공평합니다!" 신분 서열에 따른 카드 교환 내역입니다.</p>
       </div>
 
-      <div id="taxModalCardsContainer" class="w-full space-y-3 bg-stone-950/80 border border-stone-800 rounded-2xl p-3.5 text-xs text-left">
-        <!-- Injected dynamically -->
-      </div>
+      <div id="taxModalCardsContainer" class="w-full space-y-3 bg-stone-950/80 border border-stone-800 rounded-2xl p-3.5 text-xs text-left"></div>
 
       <button onclick="closeTaxModalAndStartPlay()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-amber-500 to-amber-400 hover:from-purple-500 hover:to-amber-300 text-stone-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95">
         👑 대달무티의 선 턴으로 게임 시작
@@ -226,7 +260,7 @@
     </div>
   </div>
 
-  <!-- MODAL: REVOLUTION ANNOUNCEMENT POPUP (혁명 / 대혁명 선언 팝업) -->
+  <!-- MODAL: REVOLUTION ANNOUNCEMENT POPUP -->
   <div id="revModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-3">
     <div id="revModalBox" class="bg-stone-900 border-2 border-red-500 w-full max-w-md rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center gap-4">
       <div id="revModalIcon" class="w-16 h-16 rounded-3xl bg-red-600/30 border border-red-500 flex items-center justify-center text-3xl shadow-lg">
@@ -260,7 +294,7 @@
         <button id="btnStartNextRound" onclick="handleStartNextRound()" class="flex-1 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-amber-500 to-amber-400 hover:from-purple-500 hover:to-amber-300 text-stone-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed">
           👑 다음 라운드 시작 (서열 재배치)
         </button>
-        <a href="index.html" class="px-4 py-3 rounded-2xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold text-xs transition-all flex items-center justify-center active:scale-95">
+        <a href="index.html" onclick="handleLeaveRoom(event)" class="px-4 py-3 rounded-2xl bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold text-xs transition-all flex items-center justify-center active:scale-95">
           로비 홈
         </a>
       </div>
@@ -289,13 +323,13 @@
 
         <p><strong class="text-amber-400">3. 트릭 승리와 턴:</strong> 모든 사람이 패스하면 바닥의 카드가 청소되고, 마지막으로 카드를 낸 사람이 다음 트릭의 선 턴을 쥐고 자유롭게 카드를 냅니다.</p>
 
-        <div class="bg-stone-950 p-3 rounded-2xl border border-stone-800 space-y-2">
+        <div class="bg-stone-950 p-3 rounded-xl border border-stone-800 space-y-2">
           <p class="font-bold text-purple-300">⚖️ 세금 바치기 (2라운드부터 적용)</p>
           <p>• <strong>대농노(꼴찌) ➔ 대달무티(1위):</strong> 대농노는 자신이 가진 <strong>가장 좋은(가장 작은 숫자) 카드 2장</strong>을 바칩니다. 대달무티는 원하는 카드 2장을 골라 하사합니다.</p>
           <p>• <strong>(5인 이상) 농노 ➔ 총리:</strong> 가장 좋은 카드 1장 교환.</p>
         </div>
 
-        <div class="bg-red-950/40 p-3 rounded-2xl border border-red-800/40 space-y-2">
+        <div class="bg-red-950/40 p-3 rounded-xl border border-red-800/40 space-y-2">
           <p class="font-bold text-red-300">🔥 혁명과 대혁명 (광대 2장 보유 시)</p>
           <p>• <strong>일반 혁명:</strong> 꼴찌가 아닌 플레이어가 어릿광대(13번) 2장을 모두 가졌을 때 선언 가능. ➔ <strong>그 라운드의 세금 징수가 전면 취소</strong>됩니다!</p>
           <p>• <strong>대혁명 (Great Revolution):</strong> 최하층민인 <strong>대농노(꼴찌)가 어릿광대 2장을 모두 가졌을 때</strong> 선언 가능! ➔ <strong>모든 서열이 180도 완전히 뒤집힙니다! (대농노가 대달무티로 즉위!)</strong></p>
@@ -352,10 +386,10 @@
       13: 'border-violet-400 bg-violet-950/90 text-violet-200'
     };
 
-    let tabUid = sessionStorage.getItem('blounge_tab_uid');
-    if (!tabUid) {
-      tabUid = 'usr_' + Math.random().toString(36).substring(2, 8);
-      sessionStorage.setItem('blounge_tab_uid', tabUid);
+    let sessionUid = sessionStorage.getItem('blounge_tab_uid');
+    if (!sessionUid) {
+      sessionUid = 'usr_' + Math.random().toString(36).substring(2, 8);
+      sessionStorage.setItem('blounge_tab_uid', sessionUid);
     }
     const myName = sessionStorage.getItem('blounge_tab_name') || localStorage.getItem('blounge_global_name') || ('달무티승부사_' + Math.random().toString(36).substring(2, 5));
     const myAvatar = sessionStorage.getItem('blounge_tab_avatar') || localStorage.getItem('blounge_global_avatar') || '👑';
@@ -366,6 +400,8 @@
 
     let syncChannel = null;
     let processedActionIds = new Set();
+    let hasLeftRoom = false;
+    let presenceTimer = null;
 
     // ==========================================
     // FIREBASE CLOUD REALTIME CONFIG & SYNC
@@ -408,9 +444,36 @@
         }, (err) => {
           console.warn('Firestore cloud sync notice:', err);
         });
+
+        // Start presence reporting to Lobby
+        reportGamePresence();
+        presenceTimer = setInterval(reportGamePresence, 12000);
+
       } catch (err) {
         console.warn('Firebase init fallback:', err);
       }
+    }
+
+    function reportGamePresence() {
+      if (!firestoreDb || hasLeftRoom) return;
+      firestoreDb.collection('blounge_presence').doc(sessionUid).set({
+        id: sessionUid,
+        name: myName,
+        avatar: myAvatar,
+        status: 'IN_GAME',
+        statusText: '달무티 플레이 중',
+        gameTitle: '달무티',
+        gameFile: 'dalmuti.html',
+        roomCode: roomCode,
+        lastSeen: Date.now()
+      }, { merge: true }).catch(() => {});
+    }
+
+    function createDalmutiPlayerObj(id, name, avatar, isBot = false, isReady = false) {
+      return {
+        id, name, avatar, isBot, isReady,
+        hand: [], rankTitle: '', finishedOrder: 0
+      };
     }
 
     let dalmutiState = {
@@ -422,7 +485,7 @@
       lastPlayedBy: null,
       passedPlayerIds: [],
       players: [
-        { id: tabUid, name: myName, avatar: myAvatar, isBot: false, hand: [], rankTitle: '', finishedOrder: 0 }
+        createDalmutiPlayerObj(sessionUid, myName, myAvatar, false, true)
       ],
       finishedCount: 0,
       roundNumber: 1,
@@ -452,7 +515,7 @@
       // 3. Firebase Cloud Realtime Sync (cross-device)
       initFirebaseCloudSync();
 
-      broadcast({ type: 'JOIN', id: tabUid, name: myName, avatar: myAvatar });
+      broadcast({ type: 'JOIN', id: sessionUid, name: myName, avatar: myAvatar });
       if (!isHost) {
         broadcast({ type: 'REQ_SYNC' });
         setTimeout(() => { if (!isHost) broadcast({ type: 'REQ_SYNC' }); }, 350);
@@ -461,7 +524,7 @@
     }
 
     function broadcast(pkt) {
-      pkt.sender = tabUid;
+      pkt.sender = sessionUid;
       pkt.timestamp = Date.now();
       if (!pkt.actionId) {
         pkt.actionId = 'act_' + Math.random().toString(36).substring(2, 9) + '_' + pkt.timestamp;
@@ -490,7 +553,7 @@
     }
 
     function handlePacket(pkt) {
-      if (!pkt || pkt.sender === tabUid) return;
+      if (!pkt || pkt.sender === sessionUid) return;
 
       if (pkt.actionId) {
         if (processedActionIds.has(pkt.actionId)) return;
@@ -502,20 +565,75 @@
         case 'JOIN': {
           if (isHost) {
             let p = dalmutiState.players.find(x => x.id === pkt.id);
-            if (!p && dalmutiState.players.length < 8 && !dalmutiState.isStarted) {
-              dalmutiState.players.push({ id: pkt.id, name: pkt.name, avatar: pkt.avatar, isBot: false, hand: [], rankTitle: '', finishedOrder: 0 });
+            if (!p) {
+              if (dalmutiState.players.length >= 8) {
+                broadcast({
+                  type: 'REJECT_ENTRY',
+                  targetPlayerId: pkt.id,
+                  reason: '현재 방의 인원이 가득 찼습니다! (최대 8인)'
+                });
+                return;
+              }
+              if (dalmutiState.isStarted) {
+                broadcast({
+                  type: 'REJECT_ENTRY',
+                  targetPlayerId: pkt.id,
+                  reason: '이미 게임이 진행 중인 방입니다!'
+                });
+                return;
+              }
+              dalmutiState.players.push(createDalmutiPlayerObj(pkt.id, pkt.name, pkt.avatar, false, false));
+            } else {
+              p.name = pkt.name;
+              p.avatar = pkt.avatar;
+            }
+            syncState();
+            renderAll();
+          }
+          appendChatMessage('SYSTEM', `${pkt.avatar || '👑'} ${pkt.name || '플레이어'}님이 입장하셨습니다.`);
+          break;
+        }
+
+        case 'REJECT_ENTRY': {
+          if (pkt.targetPlayerId === sessionUid) {
+            showToast(pkt.reason || '방 입장이 거부되었습니다.');
+            setTimeout(() => {
+              window.location.href = 'index.html';
+            }, 1500);
+          }
+          break;
+        }
+
+        case 'PLAYER_LEAVE': {
+          handleRemotePlayerLeave(pkt);
+          break;
+        }
+
+        case 'ACTION_TOGGLE_READY': {
+          if (isHost) {
+            const guest = dalmutiState.players.find(p => p.id === pkt.playerId);
+            if (guest) {
+              guest.isReady = pkt.isReady;
+              playBeep(523, 'sine', 0.15);
+              showToast(`${guest.name}님이 ${guest.isReady ? '준비 완료' : '준비 취소'}했습니다.`);
               syncState();
               renderAll();
             }
           }
           break;
         }
+
         case 'REQ_SYNC': {
           if (isHost) syncState();
           break;
         }
         case 'SYNC': {
+          const wasStarted = dalmutiState.isStarted;
           dalmutiState = pkt.state;
+          if (!wasStarted && dalmutiState.isStarted) {
+            playBeep(587, 'triangle', 0.25);
+            if (typeof confetti === 'function') confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+          }
           renderAll();
           checkRoundOverModalSync();
           break;
@@ -548,7 +666,116 @@
           showRevAnnouncementModal(pkt.isPeasant, pkt.revPlayerName);
           break;
         }
+        case 'CHAT_MSG': {
+          appendChatMessage(pkt.senderName, pkt.text);
+          break;
+        }
       }
+    }
+
+    function handleRemotePlayerLeave(packet) {
+      const leavingId = packet.playerId;
+      const leavingName = packet.playerName || '플레이어';
+      const leavingAvatar = packet.playerAvatar || '👑';
+
+      appendChatMessage('SYSTEM', `🚪 ${leavingAvatar} ${leavingName}님이 방을 나갔습니다.`);
+      showToast(`🚪 ${leavingName}님이 방을 나갔습니다.`);
+      playBeep(330, 'sine', 0.15);
+
+      const leavingIndex = dalmutiState.players.findIndex(p => p.id === leavingId);
+      if (leavingIndex === -1) return;
+
+      const wasLeavingHost = (leavingIndex === 0) || packet.wasHost;
+      dalmutiState.players.splice(leavingIndex, 1);
+
+      if (dalmutiState.turnIndex >= dalmutiState.players.length) {
+        dalmutiState.turnIndex = 0;
+      }
+
+      const remainingHumans = dalmutiState.players.filter(p => !p.isBot);
+      if (remainingHumans.length === 0) {
+        dalmutiState.isStarted = false;
+        dalmutiState.phase = 'PLAYING';
+        return;
+      }
+
+      if (wasLeavingHost) {
+        const newHostIndex = dalmutiState.players.findIndex(p => !p.isBot);
+        if (newHostIndex !== -1) {
+          if (newHostIndex !== 0) {
+            const [newHostPlayer] = dalmutiState.players.splice(newHostIndex, 1);
+            dalmutiState.players.unshift(newHostPlayer);
+          }
+          const newHostPlayer = dalmutiState.players[0];
+          newHostPlayer.isReady = true;
+
+          if (newHostPlayer.id === sessionUid) {
+            isHost = true;
+            showToast('👑 이전 방장이 퇴장하여 귀하가 새로운 방장이 되었습니다!');
+            syncState();
+          }
+        }
+      } else {
+        if (isHost) {
+          if (dalmutiState.isStarted && dalmutiState.phase === 'PLAYING') {
+            advanceTurn();
+          }
+          syncState();
+        }
+      }
+
+      renderAll();
+    }
+
+    function handleLeaveRoom(e) {
+      if (e) e.preventDefault();
+      if (hasLeftRoom) return;
+      hasLeftRoom = true;
+
+      broadcast({
+        type: 'PLAYER_LEAVE',
+        playerId: sessionUid,
+        playerName: myName,
+        playerAvatar: myAvatar,
+        wasHost: isHost
+      });
+
+      if (firestoreDb) {
+        firestoreDb.collection('blounge_presence').doc(sessionUid).set({
+          status: 'LOBBY',
+          statusText: '로비 대기 중',
+          gameTitle: null,
+          gameFile: null,
+          roomCode: null,
+          lastSeen: Date.now()
+        }, { merge: true }).catch(() => {});
+      }
+
+      setTimeout(() => {
+        window.location.href = 'index.html';
+      }, 150);
+    }
+
+    window.addEventListener('beforeunload', () => {
+      if (!hasLeftRoom) {
+        broadcast({
+          type: 'PLAYER_LEAVE',
+          playerId: sessionUid,
+          playerName: myName,
+          playerAvatar: myAvatar,
+          wasHost: isHost
+        });
+      }
+    });
+
+    function areAllGuestsReady() {
+      if (dalmutiState.players.length < 3) return false;
+      for (let i = 1; i < dalmutiState.players.length; i++) {
+        const p = dalmutiState.players[i];
+        if (p.isBot) continue;
+        if (!p.isReady) return false;
+      }
+      return true;
     }
 
     function createStandardDeck() {
@@ -568,16 +795,36 @@
     }
 
     function handleLobbyAction() {
-      if (!isHost) {
-        showToast('방장만 게임을 시작할 수 있습니다.');
-        return;
+      const me = dalmutiState.players.find(p => p.id === sessionUid);
+
+      if (isHost) {
+        if (dalmutiState.players.length < 3) {
+          showToast('달무티는 최소 3인 이상 필요합니다. [참가자/봇] 메뉴에서 봇을 추가하세요!');
+          return;
+        }
+        if (!areAllGuestsReady()) {
+          showToast('모든 참가자가 준비 완료(READY)해야 시작할 수 있습니다.');
+          return;
+        }
+        dalmutiState.roundNumber = 1;
+        startRoundDeal();
+      } else {
+        const currentReady = me ? !!me.isReady : false;
+        const nextReady = !currentReady;
+
+        playBeep(523, 'sine', 0.15);
+        if (me) me.isReady = nextReady;
+        renderAll();
+
+        broadcast({
+          type: 'ACTION_TOGGLE_READY',
+          playerId: sessionUid,
+          playerName: myName,
+          isReady: nextReady
+        });
+
+        showToast(nextReady ? '준비 완료! 방장이 시작하기를 기다립니다.' : '준비 상태를 취소했습니다.');
       }
-      if (dalmutiState.players.length < 3) {
-        showToast('달무티는 최소 3인 이상 필요합니다. [참가자/봇] 메뉴에서 봇을 추가하세요!');
-        return;
-      }
-      dalmutiState.roundNumber = 1;
-      startRoundDeal();
     }
 
     function startRoundDeal() {
@@ -866,9 +1113,9 @@
 
     function handlePlayerDeclareRevolution() {
       if (isHost) {
-        executeDeclareRevolution(tabUid);
+        executeDeclareRevolution(sessionUid);
       } else {
-        broadcast({ type: 'DECLARE_REVOLUTION', playerId: tabUid });
+        broadcast({ type: 'DECLARE_REVOLUTION', playerId: sessionUid });
       }
     }
 
@@ -876,7 +1123,7 @@
       if (isHost) {
         executeTaxationOrStart();
       } else {
-        broadcast({ type: 'PASS_REVOLUTION', playerId: tabUid });
+        broadcast({ type: 'PASS_REVOLUTION', playerId: sessionUid });
       }
     }
 
@@ -912,7 +1159,7 @@
     }
 
     function getMyIndex() {
-      return dalmutiState.players.findIndex(p => p.id === tabUid);
+      return dalmutiState.players.findIndex(p => p.id === sessionUid);
     }
 
     function isMyTurn() {
@@ -927,10 +1174,10 @@
       }
 
       if (isHost) {
-        executeRemotePlayCards(tabUid, selectedHandIndices);
+        executeRemotePlayCards(sessionUid, selectedHandIndices);
         selectedHandIndices = [];
       } else {
-        broadcast({ type: 'ACTION_PLAY_CARDS', playerId: tabUid, cardIndices: selectedHandIndices });
+        broadcast({ type: 'ACTION_PLAY_CARDS', playerId: sessionUid, cardIndices: selectedHandIndices });
         selectedHandIndices = [];
       }
     }
@@ -949,7 +1196,7 @@
         const first = regularCards[0];
         const allSame = regularCards.every(c => c === first);
         if (!allSame) {
-          if (playerId === tabUid) showToast('동일한 계급의 카드(또는 어릿광대 포함)만 한 번에 낼 수 있습니다!');
+          if (playerId === sessionUid) showToast('동일한 계급의 카드(또는 어릿광대 포함)만 한 번에 낼 수 있습니다!');
           return;
         }
         effectiveRank = first;
@@ -959,11 +1206,11 @@
 
       if (dalmutiState.trickCountRequired > 0) {
         if (count !== dalmutiState.trickCountRequired) {
-          if (playerId === tabUid) showToast(`현재 트릭은 정확히 ${dalmutiState.trickCountRequired}장을 내야 합니다!`);
+          if (playerId === sessionUid) showToast(`현재 트릭은 정확히 ${dalmutiState.trickCountRequired}장을 내야 합니다!`);
           return;
         }
         if (effectiveRank >= dalmutiState.currentRankOnField) {
-          if (playerId === tabUid) showToast(`현재 바닥 카드(${dalmutiState.currentRankOnField}번)보다 더 강한(더 작은 숫자) 카드만 낼 수 있습니다!`);
+          if (playerId === sessionUid) showToast(`현재 바닥 카드(${dalmutiState.currentRankOnField}번)보다 더 강한(더 작은 숫자) 카드만 낼 수 있습니다!`);
           return;
         }
       }
@@ -990,9 +1237,9 @@
       }
 
       if (isHost) {
-        executeRemotePassTurn(tabUid);
+        executeRemotePassTurn(sessionUid);
       } else {
-        broadcast({ type: 'ACTION_PASS_TURN', playerId: tabUid });
+        broadcast({ type: 'ACTION_PASS_TURN', playerId: sessionUid });
       }
     }
 
@@ -1086,7 +1333,7 @@
 
       sorted.forEach((p, idx) => {
         const item = document.createElement('div');
-        const isSelf = (p.id === tabUid);
+        const isSelf = (p.id === sessionUid);
         const isFirst = (idx === 0);
         const isLast = (idx === sorted.length - 1);
 
@@ -1221,7 +1468,7 @@
     function renderTabletop() {
       const active = dalmutiState.players[dalmutiState.turnIndex] || dalmutiState.players[0];
       document.getElementById('activeAvatar').textContent = active ? active.avatar : '👑';
-      document.getElementById('activePlayerName').textContent = active ? (active.name + (active.id === tabUid ? ' (나)' : '')) : '';
+      document.getElementById('activePlayerName').textContent = active ? (active.name + (active.id === sessionUid ? ' (나)' : '')) : '';
 
       const reqBadge = document.getElementById('currentTrickReq');
       if (dalmutiState.trickCountRequired === 0) {
@@ -1243,18 +1490,55 @@
 
         const chips = document.getElementById('lobbyPlayersChips');
         chips.innerHTML = '';
-        dalmutiState.players.forEach(p => {
+        dalmutiState.players.forEach((p, idx) => {
+          const isHostPlayer = (idx === 0);
+          const isMe = (p.id === sessionUid);
           const c = document.createElement('div');
-          c.className = 'p-2 rounded-xl bg-stone-900 border border-stone-800 text-xs flex items-center justify-between';
-          c.innerHTML = `<span>${p.avatar} ${p.name}</span><span class="text-[10px] text-amber-400 font-bold">${p.isBot ? 'BOT' : '참가자'}</span>`;
+          let statusBadge = '';
+          if (isHostPlayer) statusBadge = `<span class="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/40 px-1.5 py-0.5 rounded-full font-bold">방장 👑</span>`;
+          else if (p.isBot || p.isReady) statusBadge = `<span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded-full font-bold">준비 완료 ✔</span>`;
+          else statusBadge = `<span class="text-[10px] bg-stone-800 text-stone-400 border border-stone-700 px-1.5 py-0.5 rounded-full font-medium">대기 중 ⏳</span>`;
+
+          c.className = `p-2 rounded-xl border text-xs flex items-center justify-between ${
+            (isHostPlayer || p.isReady || p.isBot) ? 'bg-stone-900 border-purple-800/60 text-stone-200' : 'bg-stone-950 border-stone-800 text-stone-400'
+          }`;
+          c.innerHTML = `<span class="truncate max-w-[100px]">${p.avatar} ${p.name}${isMe ? ' (나)' : ''}</span><div>${statusBadge}</div>`;
           chips.appendChild(c);
         });
 
         const btnLobby = document.getElementById('btnLobbyAction');
-        btnLobby.disabled = !isHost || dalmutiState.players.length < 3;
-        btnLobby.textContent = isHost 
-          ? (dalmutiState.players.length < 3 ? '최소 3인 필요 (봇 추가 필요)' : '게임 시작 (START)')
-          : '방장의 시작을 대기 중...';
+        const guideText = document.getElementById('lobbyGuide');
+        const allReady = areAllGuestsReady();
+        const me = dalmutiState.players.find(p => p.id === sessionUid);
+
+        if (isHost) {
+          btnLobby.disabled = (dalmutiState.players.length < 3 || !allReady);
+          btnLobby.className = `w-full py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 ${
+            (dalmutiState.players.length >= 3 && allReady)
+              ? 'bg-gradient-to-r from-purple-600 to-amber-500 hover:from-purple-500 hover:to-amber-400 text-stone-950 active:scale-95 cursor-pointer ring-2 ring-amber-400/60'
+              : 'bg-stone-800 text-stone-500 border border-stone-700 cursor-not-allowed opacity-60'
+          }`;
+
+          if (dalmutiState.players.length < 3) {
+            guideText.textContent = '달무티는 최소 3인 이상 필요합니다. [참가자/봇] 메뉴에서 봇을 추가하세요.';
+            btnLobby.innerHTML = `<span>플레이어 3인 이상 대기 중...</span>`;
+          } else if (!allReady) {
+            guideText.textContent = '게스트가 준비 완료(READY)할 때까지 대기 중입니다.';
+            btnLobby.innerHTML = `<span>게스트 준비 대기 중...</span>`;
+          } else {
+            guideText.textContent = '모든 참가자가 준비 완료되었습니다! 달무티 게임을 시작하세요.';
+            btnLobby.innerHTML = `<span>달무티 게임 시작 (START GAME)</span>`;
+          }
+        } else {
+          const isReady = me ? !!me.isReady : false;
+          btnLobby.disabled = false;
+          btnLobby.className = `w-full py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer ${
+            isReady 
+              ? 'bg-emerald-600 hover:bg-emerald-500 text-stone-950 ring-2 ring-emerald-400 shadow-emerald-600/30' 
+              : 'bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-600'
+          }`;
+          btnLobby.innerHTML = isReady ? `<span>준비 완료 취소 (READY ON)</span>` : `<span>게임 준비 완료 (READY)</span>`;
+        }
       } else {
         lobbyBox.classList.add('hidden');
         bottomTray.classList.remove('hidden');
@@ -1296,7 +1580,7 @@
 
       const revPlayer = dalmutiState.players.find(p => p.hand.filter(c => c === 13).length === 2);
       const isPeasant = revPlayer && (revPlayer.id === dalmutiState.players[dalmutiState.players.length - 1].id);
-      const amIHolder = revPlayer && (revPlayer.id === tabUid);
+      const amIHolder = revPlayer && (revPlayer.id === sessionUid);
 
       if (revPlayer) {
         icon.textContent = isPeasant ? '🔥' : '🚩';
@@ -1375,6 +1659,9 @@
         `;
         roster.appendChild(el);
       });
+
+      const countBadge = document.getElementById('dalmutiPlayerOnlineCount');
+      if (countBadge) countBadge.textContent = `참여자: ${dalmutiState.players.length}명`;
     }
 
     function addBotPlayer() {
@@ -1383,15 +1670,13 @@
         return;
       }
       const bNum = dalmutiState.players.filter(p => p.isBot).length + 1;
-      dalmutiState.players.push({
-        id: 'bot_' + Math.random().toString(36).substring(2, 6),
-        name: `달무티 AI ${bNum}`,
-        avatar: '🤖',
-        isBot: true,
-        hand: [],
-        rankTitle: '',
-        finishedOrder: 0
-      });
+      dalmutiState.players.push(createDalmutiPlayerObj(
+        'bot_' + Math.random().toString(36).substring(2, 6),
+        `달무티 AI ${bNum}`,
+        '🤖',
+        true,
+        true
+      ));
       syncState();
       renderAll();
       showToast(`달무티 AI ${bNum}이 대기실에 추가되었습니다.`);
@@ -1414,12 +1699,60 @@
     }
 
     function logEvent(txt) {
-      const logs = document.getElementById('dalmutiLogs');
+      const logs = document.getElementById('dalmutiLogsTabContent');
       if (!logs) return;
       const p = document.createElement('p');
-      p.textContent = txt;
+      const time = new Date().toLocaleTimeString('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      p.innerHTML = `<span class="text-stone-600">[${time}]</span> ${escapeHtml(txt)}`;
       logs.appendChild(p);
       logs.scrollTop = logs.scrollHeight;
+    }
+
+    function switchDalmutiFeedTab(tab) {
+      const isChat = (tab === 'chat');
+      document.getElementById('dalmutiChatTabContent').classList.toggle('hidden', !isChat);
+      document.getElementById('dalmutiLogsTabContent').classList.toggle('hidden', isChat);
+
+      const tabChat = document.getElementById('dalmutiTabBtnChat');
+      const tabLogs = document.getElementById('dalmutiTabBtnLogs');
+
+      if (isChat) {
+        tabChat.className = 'text-xs font-bold text-purple-400 pb-1 border-b-2 border-purple-400';
+        tabLogs.className = 'text-xs font-semibold text-stone-400 pb-1 hover:text-stone-200';
+      } else {
+        tabLogs.className = 'text-xs font-bold text-purple-400 pb-1 border-b-2 border-purple-400';
+        tabChat.className = 'text-xs font-semibold text-stone-400 pb-1 hover:text-stone-200';
+      }
+    }
+
+    function handleChatSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('dalmutiChatInputText');
+      const text = input.value.trim();
+      if (!text) return;
+
+      appendChatMessage(myName, text);
+      broadcast({ type: 'CHAT_MSG', senderName: myName, text: text });
+      input.value = '';
+    }
+
+    function sendQuickChat(text) {
+      appendChatMessage(myName, text);
+      broadcast({ type: 'CHAT_MSG', senderName: myName, text: text });
+    }
+
+    function appendChatMessage(sender, text) {
+      const list = document.getElementById('dalmutiChatMessageList');
+      if (!list) return;
+      const msg = document.createElement('div');
+      msg.className = 'text-[11px] leading-tight break-all';
+      msg.innerHTML = `<span class="font-bold ${sender === 'SYSTEM' ? 'text-amber-400' : 'text-purple-400'}">${sender}:</span> <span class="text-stone-200">${escapeHtml(text)}</span>`;
+      list.appendChild(msg);
+      list.scrollTop = list.scrollHeight;
+    }
+
+    function escapeHtml(string) {
+      return String(string).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     function showToast(msg) {
