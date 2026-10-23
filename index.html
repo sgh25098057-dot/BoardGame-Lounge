@@ -97,7 +97,12 @@
             <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
             <h3 class="font-bold text-sm text-stone-200">현재 접속자 현황</h3>
           </div>
-          <span id="activeUserCountBadge" class="text-xs font-mono text-emerald-400 font-bold bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">1명</span>
+          <div class="flex items-center gap-2">
+            <button onclick="manualCleanGhostUsers()" title="유령 유저 즉시 정리" class="text-[10px] text-stone-400 hover:text-amber-300 bg-stone-800 hover:bg-stone-700 px-2 py-0.5 rounded-lg border border-stone-700 transition-colors">
+              🧹 정리
+            </button>
+            <span id="activeUserCountBadge" class="text-xs font-mono text-emerald-400 font-bold bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">1명</span>
+          </div>
         </div>
 
         <!-- User Cards List -->
@@ -289,14 +294,14 @@
       localStorage.setItem('blounge_firebase_config', JSON.stringify(BUILTIN_FIREBASE_CONFIG));
     }
 
-    // UID isolation
+    // UID isolation: 탭마다 독립된 식별자
     let sessionUid = sessionStorage.getItem('blounge_tab_uid');
     if (!sessionUid) {
-      sessionUid = 'usr_' + Math.random().toString(36).substring(2, 8);
+      sessionUid = 'usr_' + Math.random().toString(36).substring(2, 9);
       sessionStorage.setItem('blounge_tab_uid', sessionUid);
     }
 
-    // Profile Management
+    // Profile Management: 기본 닉네임을 랜덤으로 만들되 글로벌 값 재사용
     const savedName = localStorage.getItem('blounge_global_name') || ('승부사_' + Math.random().toString(36).substring(2, 6));
     const savedAvatar = localStorage.getItem('blounge_global_avatar') || '🎲';
 
@@ -336,10 +341,12 @@
     }
 
     // ==========================================
-    // CLOUD SYNC & PRESENCE & LOBBY CHAT
+    // CLOUD SYNC & PRESENCE & AUTO-SWEEPER
     // ==========================================
     let firestoreDb = null;
     let presenceHeartbeatTimer = null;
+    let sweeperTimer = null;
+    const PRESENCE_TIMEOUT_MS = 20000; // 20초 이상 신호 없으면 즉시 제외
 
     function initFirebase() {
       try {
@@ -353,15 +360,18 @@
         }
         firestoreDb = firebase.firestore();
 
-        // 1. Report my presence as 'LOBBY'
+        // 1. 내 상태 등록 및 8초 주기 단축 하트비트
         reportPresence();
-        presenceHeartbeatTimer = setInterval(reportPresence, 12000);
+        presenceHeartbeatTimer = setInterval(reportPresence, 8000);
 
-        // 2. Listen to presence updates
+        // 2. 실시간 감시 리스너
         listenToPresences();
 
-        // 3. Listen to Lobby Public Chat
+        // 3. 로비 광장 실시간 채팅 리스너
         listenToLobbyChat();
+
+        // 4. 오래된 좀비/유령 문서 자동 청소기 (15초마다 가동)
+        sweeperTimer = setInterval(autoCleanZombiePresences, 15000);
 
       } catch (err) {
         console.warn('Firebase lobby init fallback:', err);
@@ -370,7 +380,7 @@
 
     function reportPresence() {
       if (!firestoreDb) return;
-      const myName = document.getElementById('hubName').value || savedName;
+      const myName = document.getElementById('hubName').value.trim() || savedName;
       const myAvatar = document.getElementById('hubAvatar').value || savedAvatar;
 
       firestoreDb.collection('blounge_presence').doc(sessionUid).set({
@@ -379,6 +389,7 @@
         avatar: myAvatar,
         status: 'LOBBY',
         statusText: '로비 대기 중',
+        gameTitle: null,
         gameFile: null,
         roomCode: null,
         lastSeen: Date.now()
@@ -393,15 +404,60 @@
 
         snapshot.forEach((doc) => {
           const data = doc.data();
-          // Active if seen within last 35 seconds
-          if (data && data.lastSeen && (now - data.lastSeen < 35000)) {
-            activeUsers.push(data);
+          // lastSeen이 존재하고, 20초 이내에 갱신된 활성 유저만 인정!
+          if (data && typeof data.lastSeen === 'number') {
+            const diff = now - data.lastSeen;
+            if (diff >= -5000 && diff < PRESENCE_TIMEOUT_MS) {
+              activeUsers.push({ ...data, docId: doc.id });
+            } else if (diff >= PRESENCE_TIMEOUT_MS + 5000) {
+              // 25초 이상 지난 좀비는 즉각 DB에서 삭제 청소
+              doc.ref.delete().catch(() => {});
+            }
+          } else {
+            // lastSeen 필드가 깨진 과거 쓰레기 문서는 즉시 삭제
+            doc.ref.delete().catch(() => {});
           }
         });
 
         renderLiveUsers(activeUsers);
       }, (err) => {
         console.warn('Presence listen notice:', err);
+      });
+    }
+
+    // 좀비 문서 청소기
+    function autoCleanZombiePresences() {
+      if (!firestoreDb) return;
+      const now = Date.now();
+      firestoreDb.collection('blounge_presence').get().then((snapshot) => {
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (!data || !data.lastSeen || (now - data.lastSeen > PRESENCE_TIMEOUT_MS)) {
+            // 내가 아닌 오래된 유령 문서 삭제
+            if (doc.id !== sessionUid) {
+              doc.ref.delete().catch(() => {});
+            }
+          }
+        });
+      }).catch(() => {});
+    }
+
+    // 수동 정리 버튼 클릭 시 실행
+    function manualCleanGhostUsers() {
+      if (!firestoreDb) return;
+      const now = Date.now();
+      firestoreDb.collection('blounge_presence').get().then((snapshot) => {
+        let removed = 0;
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (doc.id !== sessionUid && (!data || !data.lastSeen || (now - data.lastSeen > 12000))) {
+            doc.ref.delete().catch(() => {});
+            removed++;
+          }
+        });
+        showToast(removed > 0 ? `${removed}개의 유령 세션을 정리했습니다!` : '현재 정리할 유령 세션이 없습니다.');
+      }).catch(() => {
+        showToast('유령 정리 중 오류가 발생했습니다.');
       });
     }
 
@@ -418,6 +474,9 @@
         return;
       }
 
+      // 내 카드가 가장 위로 오도록 정렬
+      users.sort((a, b) => (a.id === sessionUid ? -1 : 1));
+
       users.forEach((u) => {
         const isMe = (u.id === sessionUid);
         const card = document.createElement('div');
@@ -432,7 +491,6 @@
             <span>로비</span>
           </span>`;
         } else {
-          // In game room
           const gameTitle = u.gameTitle || '게임 중';
           const rCode = u.roomCode || '------';
           const targetUrl = u.gameFile ? `${u.gameFile}?room=${rCode}` : '#';
@@ -448,7 +506,7 @@
         card.innerHTML = `
           <div class="flex items-center gap-2 truncate max-w-[170px]">
             <span class="text-base">${u.avatar || '🎲'}</span>
-            <span class="font-bold truncate">${u.name || '알 수 없음'}${isMe ? ' (나)' : ''}</span>
+            <span class="font-bold truncate">${escapeHtml(u.name || '알 수 없음')}${isMe ? ' (나)' : ''}</span>
           </div>
           <div>${statusBadge}</div>
         `;
@@ -491,7 +549,7 @@
 
         row.innerHTML = `
           <span class="text-[10px] text-stone-500 font-mono shrink-0 mt-0.5">[${timeStr}]</span>
-          <span class="font-bold ${isMe ? 'text-amber-300' : 'text-emerald-400'} shrink-0">${m.avatar || ''} ${m.senderName}:</span>
+          <span class="font-bold ${isMe ? 'text-amber-300' : 'text-emerald-400'} shrink-0">${m.avatar || ''} ${escapeHtml(m.senderName)}:</span>
           <span class="text-stone-200">${escapeHtml(m.text)}</span>
         `;
         box.appendChild(row);
@@ -505,7 +563,7 @@
       const text = input.value.trim();
       if (!text || !firestoreDb) return;
 
-      const myName = document.getElementById('hubName').value || savedName;
+      const myName = document.getElementById('hubName').value.trim() || savedName;
       const myAvatar = document.getElementById('hubAvatar').value || savedAvatar;
 
       firestoreDb.collection('blounge_lobby_chat').add({
@@ -525,12 +583,14 @@
       return String(string).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    // Clean up presence on page unload
-    window.addEventListener('beforeunload', () => {
+    // 탭 닫기, 새로고침 시 presence 문서 즉각 삭제
+    function cleanupSelfPresence() {
       if (firestoreDb && sessionUid) {
         firestoreDb.collection('blounge_presence').doc(sessionUid).delete().catch(() => {});
       }
-    });
+    }
+    window.addEventListener('beforeunload', cleanupSelfPresence);
+    window.addEventListener('pagehide', cleanupSelfPresence);
 
     // Firebase configuration modal & local persistence
     function openConfigModal() {
