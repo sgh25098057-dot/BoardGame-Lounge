@@ -87,7 +87,7 @@
 
     <!-- Header Actions -->
     <div class="flex items-center gap-1.5 sm:gap-2">
-      <!-- 수동 새로고침/동기화 버튼 (혹시 모를 패킷 누락 대비) -->
+      <!-- 수동 새로고침/동기화 버튼 -->
       <button onclick="requestManualSync()" class="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 hover:text-amber-300 transition-all active:scale-95" title="방 상태 다시 불러오기 (새로고침)">
         <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
       </button>
@@ -546,7 +546,7 @@
     let isDocumentVisible = true;
     let lastStateTimestamp = 0;
 
-    // Optimistic lock protection flag
+    // 🔥 로컬 잠금 상태 캐시 (내 턴일 때만 유효)
     let localPendingLocks = {};
 
     // ==========================================
@@ -607,7 +607,6 @@
       isDocumentVisible = !document.hidden;
       if (isDocumentVisible) {
         reportGamePresence();
-        // 화면으로 복귀했을 때 즉시 방 상태 요청
         if (!isHost) requestManualSync();
       }
     });
@@ -713,7 +712,7 @@
     function handleIncomingPacket(data) {
       if (!data || data.senderId === myProfile.id) return;
 
-      // SYNC_STATE 패킷은 actionId 중복 체크로 버려지면 턴이 멈추므로 타임스탬프 기준으로 강제 수신 처리
+      // SYNC_STATE 패킷은 타임스탬프 기준으로 강제 수신 처리
       if (data.type === 'SYNC_STATE') {
         const incomingTimestamp = data.stateTimestamp || data.timestamp || 0;
         if (incomingTimestamp >= lastStateTimestamp) {
@@ -754,7 +753,7 @@
               }
               gameState.players.push({ ...data.profile, isReady: false, scores: {} });
             } else {
-              existing.id = data.profile.id; // 세션 ID 최신화
+              existing.id = data.profile.id;
               existing.name = data.profile.name;
               existing.avatar = data.profile.avatar;
             }
@@ -817,6 +816,14 @@
           if (isHost && gameState.isGameStarted) {
             const active = getCurrentActivePlayer();
             if (active && (active.id === data.playerId || active.name === data.playerName)) {
+              // 🔥 게스트가 보낸 주사위 잠금(Lock) 배열을 100% 최우선 신뢰하여 먼저 적용!
+              if (Array.isArray(data.explicitLocks)) {
+                data.explicitLocks.forEach((lockVal, idx) => {
+                  if (gameState.dice[idx]) {
+                    gameState.dice[idx].locked = !!lockVal;
+                  }
+                });
+              }
               executeRollAction();
             }
           }
@@ -857,12 +864,12 @@
         showToast('🎮 방장이 게임을 시작했습니다!', 'success');
       }
 
-      // 턴이 바뀌었을 경우 클라이언트의 모든 락 및 대기 플래그 완전 초기화
+      // 턴이 바뀌었을 때만 로컬 펜딩 락 완전 해제!
       if (prevActiveIdx !== incomingState.activePlayerIndex) {
         localPendingLocks = {};
         incomingState.isRolling = false;
       } else {
-        // 동일 턴일 때만 로컬 펜딩 락 보존
+        // 동일 턴인 경우: 내가 설정한 락 상태를 보존
         if (isMyTurn() && !incomingState.isRolling) {
           incomingState.dice.forEach((die, idx) => {
             if (localPendingLocks[idx] !== undefined) {
@@ -1001,13 +1008,11 @@
 
     function applyIncomingState(newState) {
       gameState = newState;
-      // 상태 적용 시 롤링 락 해제
       gameState.isRolling = false;
       renderAll();
       checkGameOverSync();
     }
 
-    // 턴 일치 여부 정밀 판정 (ID 및 닉네임 다중 매칭 안전망)
     function isMyTurn() {
       if (!gameState.isGameStarted) return false;
       const active = gameState.players[gameState.activePlayerIndex];
@@ -1094,6 +1099,7 @@
       checkAndTriggerBotTurn();
     }
 
+    // 🔥 핵심 수정: 굴리기 시점에 현재 내 락 배열을 안전하게 포장하여 동봉!
     function handleRollButtonClick() {
       if (!gameState.isGameStarted || gameState.isRolling || gameState.isGameOver) return;
       if (!isMyTurn()) {
@@ -1106,7 +1112,16 @@
         return;
       }
 
-      localPendingLocks = {}; // 새 굴림 시 로컬 오버라이드 리셋
+      // 현재 내 화면에 떠 있는 잠금(Lock) 배열을 정확하게 캡처
+      const currentEffectiveLocks = gameState.dice.map((d, idx) => {
+        return localPendingLocks[idx] !== undefined ? localPendingLocks[idx] : d.locked;
+      });
+
+      // 내 로컬 상태에도 확정 적용
+      currentEffectiveLocks.forEach((lockVal, idx) => {
+        gameState.dice[idx].locked = lockVal;
+        localPendingLocks[idx] = lockVal;
+      });
 
       if (isHost) {
         executeRollAction();
@@ -1115,7 +1130,8 @@
         broadcastPacket({
           type: 'ACTION_ROLL',
           playerId: myProfile.id,
-          playerName: myProfile.name
+          playerName: myProfile.name,
+          explicitLocks: currentEffectiveLocks // 🚀 방장에게 "이 주사위들은 락 걸고 굴려라"고 직접 전달!
         });
       }
     }
@@ -1127,7 +1143,8 @@
       if (rack) {
         const diceButtons = rack.querySelectorAll('.dice-item');
         diceButtons.forEach((el, index) => {
-          if (gameState.dice[index] && !gameState.dice[index].locked) {
+          const isLocked = localPendingLocks[index] !== undefined ? localPendingLocks[index] : gameState.dice[index].locked;
+          if (gameState.dice[index] && !isLocked) {
             el.classList.add('dice-rolling');
           }
         });
@@ -1173,7 +1190,7 @@
       }, 430);
     }
 
-    // Optimistic Lock Handling
+    // 주사위 클릭 시 로컬 락 즉시 갱신 및 전달
     function handleToggleDie(idx) {
       if (!gameState.isGameStarted || !isMyTurn()) {
         const active = gameState.players[gameState.activePlayerIndex];
@@ -1186,14 +1203,15 @@
       }
 
       playSynthSound('lock');
-      const newLockedState = !gameState.dice[idx].locked;
+      const currentLock = localPendingLocks[idx] !== undefined ? localPendingLocks[idx] : gameState.dice[idx].locked;
+      const newLockedState = !currentLock;
       
-      // 1. Immediate local response
+      // 1. 화면 즉각 반응
       gameState.dice[idx].locked = newLockedState;
       localPendingLocks[idx] = newLockedState;
       renderDiceRack();
 
-      // 2. Transmit
+      // 2. 동기화 패킷 전송
       if (isHost) {
         broadcastPacket({ type: 'DIE_LOCKED', dieIndex: idx, locked: newLockedState });
         broadcastGameState();
@@ -1273,12 +1291,9 @@
         return;
       }
 
-      localPendingLocks = {};
-
       if (isHost) {
         recordCategoryScore(catKey, myProfile.id, myProfile.name);
       } else {
-        // 일시 락 걸어두되 1.2초 내 응답 없으면 자동 해제
         gameState.isRolling = true;
         renderTurnControls();
         setTimeout(() => { if (gameState.isRolling) { gameState.isRolling = false; renderTurnControls(); } }, 1200);
@@ -1658,6 +1673,7 @@
         const wrapper = document.createElement('div');
         wrapper.className = 'flex flex-col items-center gap-1.5';
 
+        // 내 턴인 경우 localPendingLocks 우선 참조
         const isLocked = (isMyTurn() && localPendingLocks[idx] !== undefined) ? localPendingLocks[idx] : die.locked;
 
         const dieButton = document.createElement('button');
